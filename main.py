@@ -6,7 +6,7 @@ from discord.ext import commands
 
 from bot import helpers
 from bot.bot import YtDlpBot
-from bot.cogs import (sync)
+from bot.cogs import (sync, ytdl)
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ async def main():
         intents)
 
     await bot.add_cog(sync.Sync(bot))
+    await bot.add_cog(ytdl.YtDl(bot))
     async with bot:
         await bot.start(helpers.config.discord_key)
 

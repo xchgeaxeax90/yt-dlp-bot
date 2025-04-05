@@ -14,6 +14,7 @@ cli_args = CLI()
 class Config(BaseModel):
     discord_key: str
     database_file: str
+    yt_dlp_config: dict = {}
 
 def get_config():
     with open(cli_args.config_file, 'r') as f:
