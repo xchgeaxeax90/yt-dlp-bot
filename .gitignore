@@ -1,0 +1,8 @@
+**/*~
+**/__pycache__
+**/*.pyc
+bot_env.sh
+*.db
+.env
+cookie.json
+bot.json
