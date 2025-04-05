@@ -1,6 +1,7 @@
 import sqlite3
 from collections import defaultdict
 from itertools import groupby
+from helpers import config
 
 class Database:
     def __init__(self, dbname):
@@ -14,4 +15,4 @@ class Database:
             pass
 
 
-db = Database('bot.db')
+db = Database(config.database_file)

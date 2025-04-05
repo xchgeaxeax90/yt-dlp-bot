@@ -1,3 +1,4 @@
 {
-	"discord_key": "INSERT KEY HERE"	
+	"discord_key": "INSERT KEY HERE",
+	"database_file": "bot.db"
 }

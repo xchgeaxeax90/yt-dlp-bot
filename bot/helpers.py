@@ -1,5 +1,6 @@
 import argparse
 import json
+from pydantic import BaseModel
 
 def CLI():
     parser = argparse.ArgumentParser()
@@ -10,9 +11,13 @@ def CLI():
 
 cli_args = CLI()
 
+class Config(BaseModel):
+    discord_key: str
+    database_file: str
+
 def get_config():
     with open(cli_args.config_file, 'r') as f:
         config_data = json.load(f)
-        return argparse.Namespace(**config_data)
+        return Config(**config_data)
 
 config = get_config()
