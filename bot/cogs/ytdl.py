@@ -22,6 +22,7 @@ class YtDl(commands.Cog):
         help="Example: y!download https://www.youtube.com/watch?v=e6DSdJ9r-FM"
     )
     async def download(self, ctx: commands.Context, url: str):
+        await ctx.defer()
         availability = await self.downloader.get_availability(url)
         channel_id = ctx.channel.id
         guild_id = ctx.guild.id
