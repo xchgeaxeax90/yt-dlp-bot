@@ -1,5 +1,6 @@
 import argparse
 import json
+import discord
 from pydantic import BaseModel
 
 def CLI():
@@ -22,3 +23,19 @@ def get_config():
         return Config(**config_data)
 
 config = get_config()
+
+async def fetch_guild(client, guild_id):
+    try:
+        if not (channel := client.get_guild(guild_id)):
+            channel = await client.fetch_guild(guild_id)
+    except discord.errors.NotFound:
+        channel = None
+    return channel
+
+async def fetch_channel(guild, channel_id):
+    try:
+        if not (channel := guild.get_channel(channel_id)):
+            channel = await guild.fetch_channel(channel_id)
+    except discord.errors.NotFound:
+        channel = None
+    return channel
