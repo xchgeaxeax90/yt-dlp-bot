@@ -2,7 +2,9 @@ import logging
 import discord
 from discord.ext import commands, tasks
 from bot.downloader import downloader
+from bot.helpers import config
 from datetime import datetime, timedelta, timezone
+import shutil
 import re
 import sys
 
@@ -81,7 +83,29 @@ class YtDl(commands.Cog):
         formatted_dt = discord.utils.format_dt(time, style='F')
         await ctx.send(f"Scheduling download for {formatted_dt}")
     
+    @commands.is_owner()
+    @commands.hybrid_command(
+        name="df",
+        brief="Gets disk usage of the download directory",
+        description="Gets disk usage of the download directory",
+        usage="",
+    )
+    async def df(self, ctx: commands.Context):
+        if not 'paths' in config.yt_dlp_config or not 'home' in config.yt_dlp_config['paths']:
+            space = shutil.disk_usage('.')
+        else:
+            space = shutil.disk_usage(config.yt_dlp_config['paths']['home'])
+        MiB = 1024 * 1024
+        GiB = 1024 * MiB
+        TiB = 1024 * GiB
+        if space.free > TiB:
+            msg = f'Free space {space.free/TiB:.1f} TiB'
+        elif space.free > GiB:
+            msg = f'Free space {space.free/GiB:.1f} GiB'
+        else:
+            msg = f'Free space {space.free/MiB:.1f} MiB'
+        await ctx.send(msg)
 
-    @tasks.loop(minutes=1, reconnect=True)
+    @tasks.loop(seconds=config.polling_interval_s, reconnect=True)
     async def check_tasks(self):
-        await self.downloader.schedule_deferred_downloads()
+        await self.downloader.schedule_deferred_downloads(config.polling_interval_s)

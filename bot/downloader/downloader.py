@@ -32,6 +32,7 @@ class Downloader:
     def __init__(self, bot):
         self.executor = futures.ThreadPoolExecutor(max_workers=None)
         self.bot = bot
+        self.current_downloads = {}
 
     def get_info(self, url: str):
         extra_opts = {'ignore_no_formats_error': True}
@@ -89,15 +90,36 @@ class Downloader:
             db.add_completion_for_url(guild_id, channel_id, url)
     
 
-    async def schedule_deferred_downloads(self):
+    async def schedule_deferred_downloads(self, loop_interval_s):
         urls = db.get_downloads_now(60*2)
         [db.delete_future_download(url) for url in urls]
-        logger.info(f'Downloading {urls}')
+        if urls:
+            logger.info(f'Downloading {urls}')
         async def _run_download(url):
             await asyncio.to_thread(self._download, url, {'wait_for_video': (15, 2*60*60)})
             await self._post_completion(url)
 
-        tasks = [_run_download(url) for url in urls]
-        await asyncio.gather(*tasks)
+        # Start asyncio tasks for each video to be downloaded
+        tasks = {url:asyncio.create_task(_run_download(url)) for url in urls }
+        # The tricky bit, we cannot asyncio.gather(*tasks) here, as it
+        # would block the loop calling this task until every scheduled
+        # download finishes
+
+        # Instead, we will store all the currently executing tasks in the object
+        self.current_downloads.update(tasks)
+        if not self.current_downloads:
+            return
+
+        logger.info(f'Waiting for {self.current_downloads.values()} to finish')
+        # Use asyncio.wait to wait with a timeout of the loop polling interval
+        # If the tasks finish before the timeout, great, this is equivalent to asyncio.gather
+        # If not however, the tasks being waited on will not be
+        # cancelled, and can be awaited on again in the next loop
+        await asyncio.wait(self.current_downloads.values(), timeout=loop_interval_s)
+
+        for url, task in self.current_downloads.items():
+            if task.done():
+                self.current_downloads.pop(url)
+            logger.info(f'Finished download for {url}')
         
         

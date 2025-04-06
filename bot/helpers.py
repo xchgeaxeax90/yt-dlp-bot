@@ -15,6 +15,7 @@ cli_args = CLI()
 class Config(BaseModel):
     discord_key: str
     database_file: str
+    polling_interval_s: int = 60
     yt_dlp_config: dict = {}
 
 def get_config():
