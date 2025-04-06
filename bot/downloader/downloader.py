@@ -6,14 +6,14 @@ from concurrent import futures
 
 from bot.database import db
 from bot.helpers import config, fetch_guild, fetch_channel
-from datetime import datetime
+import datetime
 
 logger = logging.getLogger(__name__)
 
 # Algebraic data type for video availability
 @dataclass
 class AvailableFuture:
-    epoch: datetime
+    epoch: datetime.datetime
 
 @dataclass
 class AvailableNow:
@@ -48,8 +48,9 @@ class Downloader:
                 # This video is not live yet and must have a download scheduled
                 if not 'release_timestamp' in video_info:
                     return AvailabilityError('No timestamp found in video info, cannot schedule a download')
+                logger.info(f'Received timestamp {video_info["release_timestamp"]}')
                 timestamp = int(video_info['release_timestamp'])
-                time = datetime.utcfromtimestamp(timestamp)
+                time = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
                 return AvailableFuture(time)
             else:
                 return AvailableNow
@@ -93,7 +94,7 @@ class Downloader:
         [db.delete_future_download(url) for url in urls]
         logger.info(f'Downloading {urls}')
         async def _run_download(url):
-            await asyncio.to_thread(self._download, url, {'wait_for_video': 15})
+            await asyncio.to_thread(self._download, url, {'wait_for_video': (15, 2*60*60)})
             await self._post_completion(url)
 
         tasks = [_run_download(url) for url in urls]
