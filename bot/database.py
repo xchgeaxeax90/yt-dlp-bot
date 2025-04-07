@@ -12,8 +12,12 @@ class Database:
 
     def setup_tables(self):
         with self.con:
-            self.con.execute('CREATE TABLE IF NOT EXISTS completion_channels (guild_id integer, channel_id integer, url text);')
-            self.con.execute('CREATE TABLE IF NOT EXISTS future_downloads(url text, utcepoch int);')
+            self.con.execute("""CREATE TABLE IF NOT EXISTS completion_channels (
+            guild_id integer, channel_id integer, url text,
+            UNIQUE(guild_id, channel_id, url));""")
+            self.con.execute("""CREATE TABLE IF NOT EXISTS future_downloads (
+            url text, utcepoch int, UNIQUE(url)
+            );""")
 
     def add_completion_for_url(self, guild_id: int, channel_id: int, url: str):
         with self.con:
@@ -42,6 +46,10 @@ class Database:
     def delete_future_download(self, url: str):
         with self.con:
             self.con.execute("""DELETE FROM future_downloads WHERE url = ?;""", (url,))
+
+    def get_all_scheduled_downloads(self):
+        results = self.con.execute("""SELECT url, utcepoch FROM future_downloads;""").fetchall()
+        return results
         
 
 

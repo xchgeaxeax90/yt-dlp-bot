@@ -7,6 +7,7 @@ from concurrent import futures
 from bot.database import db
 from bot.helpers import config, fetch_guild, fetch_channel
 import datetime
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,12 @@ Availability = AvailableFuture | AvailableNow | AvailabilityError
 
 def hook(d):
     logger.info(d)
+
+@dataclass
+class DownloadTask:
+    task: asyncio.Task
+    event: threading.Event
+    
 
 class Downloader:
     def __init__(self, bot):
@@ -68,19 +75,33 @@ class Downloader:
             await channel.send(f"Finished downloading {url}")
 
 
-    def _download(self, url: str, extra_args: dict):
-        logger.info("Attempting to submit post completion")
-        with yt_dlp.YoutubeDL(config.yt_dlp_config | extra_args) as ydl:
-            logger.info(f'Initiating download of {url}')
-            ydl.download(url)
-            logger.info(f'Finished download of {url}')
+    async def _download(self, url: str, extra_args: dict, event: threading.Event):
+        def _download_hook(event, d):
+            logger.info(f'Checking event {event}')
+            if event.is_set():
+                print('Attempting to cancel yt-dlp')
+                raise asyncio.CancelledError
+        hook_args = {'progress_hooks': [lambda d: _download_hook(event, d)]}
+        def _download_impl():
+            with yt_dlp.YoutubeDL(config.yt_dlp_config | extra_args | hook_args) as ydl:
+                logger.info(f'Initiating download of {url}')
+                ydl.download(url)
+                logger.info(f'Finished download of {url}')
+        await asyncio.to_thread(_download_impl)
+        await self._post_completion(url)
+
+    def create_download_task(self, url: str, extra_args: dict):
+        event = threading.Event()
+        task = asyncio.create_task(self._download(url, extra_args, event))
+        return DownloadTask(task, event)
 
     async def download_async(self, url: str, guild_id=None, channel_id=None):
         #self._download(url)
         if guild_id and channel_id:
             db.add_completion_for_url(guild_id, channel_id, url)
-        await asyncio.to_thread(self._download, url, {})
-        await self._post_completion(url)
+        task = self.create_download_task(url, {})
+        self.current_downloads[url] = task
+        await asyncio.wait([v.task for v in self.current_downloads.values()], timeout=1)
 
     def defer_download_until_time(self, url: str, time: datetime, guild_id=None, channel_id=None):
         utctimestamp = time.timestamp()
@@ -95,12 +116,10 @@ class Downloader:
         [db.delete_future_download(url) for url in urls]
         if urls:
             logger.info(f'Downloading {urls}')
-        async def _run_download(url):
-            await asyncio.to_thread(self._download, url, {'wait_for_video': (15, 2*60*60)})
-            await self._post_completion(url)
+        extra_args = {'wait_for_video': (15, 2*60*60)}
 
         # Start asyncio tasks for each video to be downloaded
-        tasks = {url:asyncio.create_task(_run_download(url)) for url in urls }
+        tasks = {url: self.create_download_task(url, extra_args) for url in urls }
         # The tricky bit, we cannot asyncio.gather(*tasks) here, as it
         # would block the loop calling this task until every scheduled
         # download finishes
@@ -115,11 +134,30 @@ class Downloader:
         # If the tasks finish before the timeout, great, this is equivalent to asyncio.gather
         # If not however, the tasks being waited on will not be
         # cancelled, and can be awaited on again in the next loop
-        await asyncio.wait(self.current_downloads.values(), timeout=loop_interval_s)
+        await asyncio.wait([v.task for v in self.current_downloads.values()], timeout=loop_interval_s)
 
+        urls_to_delete = []
         for url, task in self.current_downloads.items():
-            if task.done():
-                self.current_downloads.pop(url)
+            if task.task.done():
+                urls_to_delete.append(url)
             logger.info(f'Finished download for {url}')
+        [self.current_downloads.pop(url) for url in urls_to_delete]
         
+    def get_running_downloads(self):
+        return self.current_downloads.keys()
+
+    def get_scheduled_downloads(self):
+        return db.get_all_scheduled_downloads()
+
+    def cancel_download(self, url):
+        if url in self.current_downloads:
+            logger.info(f'Setting event {self.current_downloads[url].event}')
+            self.current_downloads[url].event.set()
+            return True
+        scheduled_downloads = db.get_all_scheduled_downloads()
+        urls = {r[0] for r in scheduled_downloads}
+        if url in urls:
+            db.delete_future_download(url)
+            return True
+        return False
         

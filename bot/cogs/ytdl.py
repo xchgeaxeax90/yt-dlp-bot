@@ -106,6 +106,46 @@ class YtDl(commands.Cog):
             msg = f'Free space {space.free/MiB:.1f} MiB'
         await ctx.send(msg)
 
+    @commands.is_owner()
+    @commands.hybrid_command(
+        name="get-running-downloads",
+        brief="Gets the currently running downloads",
+        description="Gets the currently running downloads",
+        usage="",
+    )
+    async def running_downloads(self, ctx: commands.Context):
+        urls = self.downloader.get_running_downloads()
+        msg = "\n".join([f'<{url}>' for url in urls])
+        await ctx.send("Running downloads:\n" + msg)
+    
+    @commands.is_owner()
+    @commands.hybrid_command(
+        name="get-scheduled-downloads",
+        brief="Gets the currently scheduled downloads",
+        description="Gets the currently scheduled downloads",
+        usage="",
+    )
+    async def scheduled_downloads(self, ctx: commands.Context):
+        results = self.downloader.get_scheduled_downloads()
+        lines = []
+        for (url, timestamp) in results:
+            lines.append(f"<{url}> <t:{timestamp}:F>")
+        msg = "\n".join(lines)
+        await ctx.send("Scheduled Downloads:\n" + msg)
+
+    @commands.is_owner()
+    @commands.hybrid_command(
+        name="cancel",
+        brief="Cancels a download",
+        description="Cancels a download",
+        usage="",
+    )
+    async def cancel_download(self, ctx: commands.Context, url: str):
+        if self.downloader.cancel_download(url):
+            await ctx.send(f"Successfully cancelled download of <{url}>")
+        else:
+            await ctx.send(f"Could not find <{url}> in running or future downloads")
+
     @tasks.loop(seconds=config.polling_interval_s, reconnect=True)
     async def check_tasks(self):
         await self.downloader.schedule_deferred_downloads(config.polling_interval_s)

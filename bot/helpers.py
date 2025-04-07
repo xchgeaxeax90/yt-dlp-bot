@@ -1,6 +1,7 @@
 import argparse
 import json
 import discord
+import logging
 from pydantic import BaseModel
 
 def CLI():
@@ -21,6 +22,7 @@ class Config(BaseModel):
 def get_config():
     with open(cli_args.config_file, 'r') as f:
         config_data = json.load(f)
+        config_data['logger'] = logging.getLogger('yt-dlp')
         return Config(**config_data)
 
 config = get_config()
