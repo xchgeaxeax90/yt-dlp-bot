@@ -116,7 +116,7 @@ class Downloader:
         [db.delete_future_download(url) for url in urls]
         if urls:
             logger.info(f'Downloading {urls}')
-        extra_args = {'wait_for_video': (15, 2*60*60)}
+        extra_args = {'wait_for_video': [15, 60]}
 
         # Start asyncio tasks for each video to be downloaded
         tasks = {url: self.create_download_task(url, extra_args) for url in urls }
