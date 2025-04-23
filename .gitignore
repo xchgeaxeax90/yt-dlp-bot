@@ -6,3 +6,4 @@ bot_env.sh
 .env
 cookie.json
 bot.json
+runtime/

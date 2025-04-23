@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "yt_dlp_bot"
+version = "0.1.0"
+description = "Discord bot to auto download youtube streams"
+authors = ["xchgeaxeax"]
+
+[tool.poetry.dependencies]
+python = "^3.13"
+"discord.py" = "2.5.2"
+requests = "2.32.3"
+"yt-dlp" = "^2025.3.31"
+pydantic = "2.11.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
