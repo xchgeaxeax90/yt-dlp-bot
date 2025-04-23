@@ -4,9 +4,9 @@ import discord
 from discord.ext import commands
 
 
-from bot import helpers
-from bot.bot import YtDlpBot
-from bot.cogs import (sync, ytdl)
+from yt_dlp_bot import helpers
+from yt_dlp_bot.bot import YtDlpBot
+from yt_dlp_bot.cogs import (sync, ytdl)
 
 logger = logging.getLogger(__name__)
 

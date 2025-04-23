@@ -1,7 +1,7 @@
 import sqlite3
 from collections import defaultdict
 from itertools import groupby
-from bot.helpers import config
+from yt_dlp_bot.helpers import config
 
 class Database:
     def __init__(self, dbname):

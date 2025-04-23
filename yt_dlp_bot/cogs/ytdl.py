@@ -1,8 +1,8 @@
 import logging
 import discord
 from discord.ext import commands, tasks
-from bot.downloader import downloader
-from bot.helpers import config
+from yt_dlp_bot.downloader import downloader
+from yt_dlp_bot.helpers import config
 from datetime import datetime, timedelta, timezone
 import shutil
 import re

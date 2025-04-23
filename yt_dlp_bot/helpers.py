@@ -18,6 +18,7 @@ class Config(BaseModel):
     database_file: str
     polling_interval_s: int = 60
     yt_dlp_config: dict = {}
+    pikl_url: str | None = None
 
 def get_config():
     with open(cli_args.config_file, 'r') as f:

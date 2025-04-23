@@ -4,8 +4,8 @@ import asyncio
 from dataclasses import dataclass
 from concurrent import futures
 
-from bot.database import db
-from bot.helpers import config, fetch_guild, fetch_channel
+from yt_dlp_bot.database import db
+from yt_dlp_bot.helpers import config, fetch_guild, fetch_channel
 import datetime
 import threading
 
