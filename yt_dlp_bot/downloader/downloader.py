@@ -4,7 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from concurrent import futures
 
-from yt_dlp_bot.database import db
+from yt_dlp_bot.database import db, YoutubeWaitingRoom
 from yt_dlp_bot.helpers import config, fetch_guild, fetch_channel
 import datetime
 import threading
@@ -91,6 +91,7 @@ class Downloader:
                 logger.info(f'Finished download of {url}')
         await asyncio.to_thread(_download_impl)
         await self._notify_for_download(url, f'Finished download for {url}')
+        db.delete_completion_for_url(url)
 
     def create_download_task(self, url: str, notify: bool, extra_args: dict):
         event = threading.Event()
@@ -163,4 +164,12 @@ class Downloader:
             db.disable_future_download(url)
             return True
         return False
-        
+
+    def receive_waiting_room(self, room: YoutubeWaitingRoom):
+        url = f"https://www.youtube.com/watch?v={room.video_id}"
+        if db.add_subscribed_waiting_room(room, url):
+            guild_info = db.get_guild_info_for_subscription(room.channel_id, room.kind)
+            for (guild_id, channel_id) in guild_info:
+                logger.info(f"Adding completion for {url}")
+                db.add_completion_for_url(guild_id, channel_id, url)
+            

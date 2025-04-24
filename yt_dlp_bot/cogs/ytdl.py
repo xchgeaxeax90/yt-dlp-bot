@@ -1,9 +1,9 @@
 import logging
 import discord
 from discord.ext import commands, tasks
-from yt_dlp_bot.downloader import downloader
 from yt_dlp_bot.helpers import config
 from yt_dlp_bot.database import db, RoomKind
+import yt_dlp_bot.downloader.downloader as dl
 from datetime import datetime, timedelta, timezone
 import shutil
 import re
@@ -27,9 +27,9 @@ def parse_text_duration_timedelta(time_str):
 logger = logging.getLogger(__name__)
 
 class YtDl(commands.Cog):
-    def __init__(self, bot) -> None:
+    def __init__(self, bot, downloader) -> None:
         self.bot = bot
-        self.downloader = downloader.Downloader(self.bot)
+        self.downloader = downloader
         self.check_tasks.start()
 
     def parse_text_as_datetime(self, time_text: str):
@@ -58,12 +58,12 @@ class YtDl(commands.Cog):
         guild_id = ctx.guild.id
         logger.info(f"Got availability {availability}")
         match availability:
-            case downloader.AvailabilityError(errstr):
+            case dl.AvailabilityError(errstr):
                 await ctx.send(errstr)
-            case downloader.AvailableNow:
+            case dl.AvailableNow:
                 await ctx.send("Downloading video now")
                 await self.downloader.download_async(url, guild_id, channel_id)
-            case downloader.AvailableFuture(time):
+            case dl.AvailableFuture(time):
                 self.downloader.defer_download_until_time(url, time, guild_id, channel_id)
                 formatted_dt = discord.utils.format_dt(time, style='F')
                 await ctx.send(f"Scheduling download for {formatted_dt}")
@@ -154,9 +154,11 @@ class YtDl(commands.Cog):
         description="Subscribes to automatic downloads for a channel",
         usage="",
     )
-    async def subscribe(self, ctx: commands.Context, channel_id: str, kind: RoomKind):
-        db.subscribe_to_channel(channel_id, kind)
-        await ctx.send(f"Subscribed to automatic {kind.value} downloads from {channel_id}")
+    async def subscribe(self, ctx: commands.Context, youtube_channel: str, kind: RoomKind):
+        channel_id = ctx.channel.id
+        guild_id = ctx.guild.id
+        db.subscribe_to_channel(youtube_channel, kind, guild_id, channel_id)
+        await ctx.send(f"Subscribed to automatic {kind.value} downloads from {youtube_channel}")
 
     @commands.is_owner()
     @commands.hybrid_command(
@@ -165,12 +167,13 @@ class YtDl(commands.Cog):
         description="Unsubscribes from automatic downloads for a channel",
         usage="",
     )
-    async def unsubscribe(self, ctx: commands.Context, channel_id: str, kind: RoomKind | None = None):
-        db.unsubscribe_from_channel(channel_id, kind)
+    async def unsubscribe(self, ctx: commands.Context, youtube_channel: str, kind: RoomKind | None = None):
+        guild_id = ctx.guild.id
+        db.unsubscribe_from_channel(youtube_channel, kind, guild_id)
         if kind:
-            await ctx.send(f"Unsubscribed to automatic {kind.value} downloads from {channel_id}")
+            await ctx.send(f"Unsubscribed to automatic {kind.value} downloads from {youtube_channel}")
         else:
-            await ctx.send(f"Unsubscribed to all automatic downloads from {channel_id}")
+            await ctx.send(f"Unsubscribed to all automatic downloads from {youtube_channel}")
 
     @tasks.loop(seconds=config.polling_interval_s, reconnect=True)
     async def check_tasks(self):

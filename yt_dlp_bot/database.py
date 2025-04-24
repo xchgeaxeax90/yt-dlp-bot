@@ -33,7 +33,7 @@ class Database:
             url text, utcepoch int, valid int DEFAULT 1, UNIQUE(url)
             );""")
             self.con.execute("""CREATE TABLE IF NOT EXISTS subscribed_channels (
-                channel_id text, room_kind text, UNIQUE(channel_id, room_kind));""")
+                guild_id integer, channel_id integer, youtube_channel text, room_kind text, UNIQUE(guild_id, youtube_channel, room_kind));""")
 
     def add_completion_for_url(self, guild_id: int, channel_id: int, url: str):
         with self.con:
@@ -82,29 +82,34 @@ class Database:
         results = self.con.execute("""SELECT url, utcepoch FROM future_downloads WHERE valid <> 0 ORDER BY utcepoch ASC;""").fetchall()
         return results
         
-    def add_subscribed_waiting_room(self, room: YoutubeWaitingRoom):
-        url = f"https://www.youtube.com/watch?v={room.video_id}"
+    def add_subscribed_waiting_room(self, room: YoutubeWaitingRoom, url: str):
         with self.con:
-            self.con.execute("""INSERT OR IGNORE INTO future_downloads (url, utcepoch)
+            cursor = self.con.cursor()
+            cursor.execute("""INSERT OR IGNORE INTO future_downloads (url, utcepoch)
                 SELECT ?, ?
                 WHERE EXISTS (
-                    SELECT 1 FROM subscribed_channels WHERE channel_id = ? AND room_kind = ?
+                    SELECT 1 FROM subscribed_channels WHERE youtube_channel = ? AND room_kind = ?
             );""", (url, room.utcepoch, room.channel_id.lower(), room.kind.value))
+            return cursor.lastrowid != 0
 
-    def subscribe_to_channel(self, channel_id: str, kind: RoomKind):
+    def subscribe_to_channel(self, youtube_channel: str, kind: RoomKind, guild_id: int, channel_id: int):
         with self.con:
-            self.con.execute("""INSERT OR IGNORE INTO subscribed_channels (channel_id, room_kind)
-                 VALUES (?, ?)""", (channel_id.lower(), kind.value if kind else None))
+            self.con.execute("""INSERT OR IGNORE INTO subscribed_channels (youtube_channel, room_kind, guild_id, channel_id)
+                 VALUES (?, ?, ?, ?)""", (youtube_channel.lower(), kind.value if kind else None, guild_id, channel_id))
 
-    def unsubscribe_from_channel(self, channel_id: str, kind: RoomKind | None):
+    def unsubscribe_from_channel(self, youtube_channel: str, kind: RoomKind | None, guild_id: int):
         if kind:
             with self.con:
                 self.con.execute("""DELETE FROM subscribed_channels
-                WHERE channel_id = ? AND room_kind = ?;""", (channel_id.lower(), kind.value))
+                WHERE youtube_channel = ? AND room_kind = ? AND guild_id = ?;""", (youtube_channel.lower(), kind.value, guild_id))
         else:
             with self.con:
                 self.con.execute("""DELETE FROM subscribed_channels
-                WHERE channel_id = ?;""", (channel_id.lower()))
+                WHERE youtube_channel = ? AND guild_id = ?;""", (youtube_channel.lower(), guild_id))
 
+    def get_guild_info_for_subscription(self, youtube_channel: str, kind: RoomKind):
+        return self.con.execute("""SELECT guild_id, channel_id FROM subscribed_channels
+            WHERE youtube_channel = ? AND room_kind = ?""",
+            (youtube_channel, kind.value)).fetchall()
 
 db = Database(config.database_file)

@@ -2,13 +2,15 @@ import httpx
 import asyncio
 import json
 import logging
-from yt_dlp_bot.database import db, RoomKind, YoutubeWaitingRoom
+from yt_dlp_bot.database import RoomKind, YoutubeWaitingRoom
+from yt_dlp_bot.downloader.downloader import Downloader
 
 logger = logging.getLogger(__name__)
 
 class AsyncSSEClient:
-    def __init__(self, url:str, retry_delay: float=30.0):
+    def __init__(self, url:str, downloader: Downloader, retry_delay: float=30.0):
         self.url = url + "/waiting_rooms"
+        self.downloader = downloader
         self.retry_delay = retry_delay
         self.last_event_id = None
 
@@ -52,9 +54,9 @@ class AsyncSSEClient:
     async def handle_event(self, data):
         room = YoutubeWaitingRoom(**data)
         logger.info(f"Received {room}")
-        db.add_subscribed_waiting_room(room)
+        self.downloader.receive_waiting_room(room)
         
 
-async def run_api_client(url: str):
-    client = AsyncSSEClient(url)
+async def run_api_client(url: str, downloader: Downloader):
+    client = AsyncSSEClient(url, downloader)
     await client.listen()

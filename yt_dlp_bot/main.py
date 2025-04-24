@@ -5,6 +5,7 @@ from discord.ext import commands
 
 
 from yt_dlp_bot import helpers
+from yt_dlp_bot.downloader.downloader import Downloader
 from yt_dlp_bot.bot import YtDlpBot
 from yt_dlp_bot.cogs import (sync, ytdl)
 
@@ -27,13 +28,15 @@ async def main():
     bot = YtDlpBot(
         intents)
 
+    downloader = Downloader(bot)
+
     await bot.add_cog(sync.Sync(bot))
-    await bot.add_cog(ytdl.YtDl(bot))
+    await bot.add_cog(ytdl.YtDl(bot, downloader))
     async with bot:
         tasks = []
         tasks.append(bot.start(helpers.config.discord_key))
         if helpers.config.pikl_url:
-            tasks.append(waiting_room_client.run_api_client(helpers.config.pikl_url))
+            tasks.append(waiting_room_client.run_api_client(helpers.config.pikl_url, downloader))
 
         await asyncio.gather(*tasks)
 
