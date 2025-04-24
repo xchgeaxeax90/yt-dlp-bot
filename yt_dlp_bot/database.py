@@ -70,6 +70,11 @@ class Database:
 
     def delete_future_download(self, url: str):
         with self.con:
+            self.con.execute("""DELETE FROM future_downloads WHERE url=?""",
+                             (url,))
+
+    def disable_future_download(self, url: str):
+        with self.con:
             self.con.execute("""UPDATE future_downloads SET valid=0 WHERE url=?""",
                              (url,))
 

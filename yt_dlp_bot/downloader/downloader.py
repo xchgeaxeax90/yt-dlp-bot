@@ -157,7 +157,8 @@ class Downloader:
         scheduled_downloads = db.get_all_scheduled_downloads()
         urls = {r[0] for r in scheduled_downloads}
         if url in urls:
-            db.delete_future_download(url)
+            # Disable here because we want it to reject nuisance updates from the pikl api if we delete a waiting room
+            db.disable_future_download(url)
             return True
         return False
         
