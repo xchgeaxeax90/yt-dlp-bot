@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands, tasks
 from yt_dlp_bot.downloader import downloader
 from yt_dlp_bot.helpers import config
+from yt_dlp_bot.database import db, RoomKind
 from datetime import datetime, timedelta, timezone
 import shutil
 import re
@@ -146,6 +147,32 @@ class YtDl(commands.Cog):
         else:
             await ctx.send(f"Could not find <{url}> in running or future downloads")
 
+    @commands.is_owner()
+    @commands.hybrid_command(
+        name="subscribe",
+        brief="Subscribes to automatic downloads for a channel",
+        description="Subscribes to automatic downloads for a channel",
+        usage="",
+    )
+    async def subscribe(self, ctx: commands.Context, channel_id: str, kind: RoomKind):
+        db.subscribe_to_channel(channel_id, kind)
+        await ctx.send(f"Subscribed to automatic {kind.value} downloads from {channel_id}")
+
+    @commands.is_owner()
+    @commands.hybrid_command(
+        name="unsubscribe",
+        brief="Unsubscribes from automatic downloads for a channel",
+        description="Unsubscribes from automatic downloads for a channel",
+        usage="",
+    )
+    async def unsubscribe(self, ctx: commands.Context, channel_id: str, kind: RoomKind | None = None):
+        db.unsubscribe_from_channel(channel_id, kind)
+        if kind:
+            await ctx.send(f"Unsubscribed to automatic {kind.value} downloads from {channel_id}")
+        else:
+            await ctx.send(f"Unsubscribed to all automatic downloads from {channel_id}")
+
     @tasks.loop(seconds=config.polling_interval_s, reconnect=True)
     async def check_tasks(self):
         await self.downloader.schedule_deferred_downloads(config.polling_interval_s)
+        db.cleanup_future_downloads()
