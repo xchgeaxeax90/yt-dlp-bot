@@ -108,7 +108,7 @@ class Downloader:
     def defer_download_until_time(self, url: str, time: datetime, guild_id=None, channel_id=None):
         utctimestamp = time.timestamp()
         logger.info(f'Deferring download of {url} until {utctimestamp}')
-        db.add_future_download(url, utctimestamp)
+        db.add_future_download(url, int(utctimestamp))
         if guild_id and channel_id:
             db.add_completion_for_url(guild_id, channel_id, url)
     

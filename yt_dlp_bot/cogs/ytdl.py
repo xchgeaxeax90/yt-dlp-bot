@@ -130,7 +130,7 @@ class YtDl(commands.Cog):
         results = self.downloader.get_scheduled_downloads()
         lines = []
         for (url, timestamp) in results:
-            lines.append(f"<{url}> <t:{timestamp}:F>")
+            lines.append(f"<{url}> <t:{int(timestamp)}:F>")
         msg = "\n".join(lines)
         await ctx.send("Scheduled Downloads:\n" + msg)
 

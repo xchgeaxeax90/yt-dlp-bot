@@ -79,7 +79,7 @@ class Database:
                              (url,))
 
     def get_all_scheduled_downloads(self):
-        results = self.con.execute("""SELECT url, utcepoch FROM future_downloads WHERE valid <> 0;""").fetchall()
+        results = self.con.execute("""SELECT url, utcepoch FROM future_downloads WHERE valid <> 0 ORDER BY utcepoch ASC;""").fetchall()
         return results
         
     def add_subscribed_waiting_room(self, room: YoutubeWaitingRoom):
