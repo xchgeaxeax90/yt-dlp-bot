@@ -65,17 +65,19 @@ class Downloader:
         except Exception as e:
             return AvailabilityError(str(e))
 
-    async def _post_completion(self, url: str):
+    async def _notify_for_download(self, url: str, message: str):
         logger.info("Post completion")
         completion = db.get_completion_channel_for_url(url)
         if completion:
             (guild_id, channel_id) = completion
             guild = await fetch_guild(self.bot, guild_id)
             channel = await fetch_channel(guild, channel_id)
-            await channel.send(f"Finished downloading {url}")
+            await channel.send(message)
 
 
-    async def _download(self, url: str, extra_args: dict, event: threading.Event):
+    async def _download(self, url: str, notify: bool, extra_args: dict, event: threading.Event):
+        if notify:
+            await self._notify_for_download(url, f'Started download of <{url}>')
         def _download_hook(event, d):
             logger.info(f'Checking event {event}')
             if event.is_set():
@@ -88,18 +90,18 @@ class Downloader:
                 ydl.download(url)
                 logger.info(f'Finished download of {url}')
         await asyncio.to_thread(_download_impl)
-        await self._post_completion(url)
+        await self._notify_for_download(url, f'Finished download for {url}')
 
-    def create_download_task(self, url: str, extra_args: dict):
+    def create_download_task(self, url: str, notify: bool, extra_args: dict):
         event = threading.Event()
-        task = asyncio.create_task(self._download(url, extra_args, event))
+        task = asyncio.create_task(self._download(url, notify, extra_args, event))
         return DownloadTask(task, event)
 
     async def download_async(self, url: str, guild_id=None, channel_id=None):
         #self._download(url)
         if guild_id and channel_id:
             db.add_completion_for_url(guild_id, channel_id, url)
-        task = self.create_download_task(url, {})
+        task = self.create_download_task(url, False, {})
         self.current_downloads[url] = task
         await asyncio.wait([v.task for v in self.current_downloads.values()], timeout=1)
 
@@ -119,7 +121,7 @@ class Downloader:
         extra_args = {'wait_for_video': [15, 60]}
 
         # Start asyncio tasks for each video to be downloaded
-        tasks = {url: self.create_download_task(url, extra_args) for url in urls }
+        tasks = {url: self.create_download_task(url, True, extra_args) for url in urls }
         # The tricky bit, we cannot asyncio.gather(*tasks) here, as it
         # would block the loop calling this task until every scheduled
         # download finishes
