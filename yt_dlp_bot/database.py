@@ -4,18 +4,28 @@ from itertools import groupby
 from yt_dlp_bot.helpers import config
 from dataclasses import dataclass
 from pydantic import BaseModel
+import datetime
 from enum import Enum
 
 class RoomKind(Enum):
     STREAM = 'streams'
     PREMIERE = 'videos'
 
-class YoutubeWaitingRoom(BaseModel):
+class YoutubeVideo(BaseModel):
     channel_id: str
     video_id: str
+    @property
+    def url(self):
+        return f"https://youtube.com/watch?v={self.video_id}"
+
+class YoutubeWaitingRoom(YoutubeVideo):
     title: str
     kind: RoomKind
     utcepoch: int
+
+    @property
+    def utcdatetime(self):
+        return datetime.datetime.fromtimestamp(self.utcepoch).astimezone(datetime.timezone.utc)
 
 class Database:
     def __init__(self, dbname):

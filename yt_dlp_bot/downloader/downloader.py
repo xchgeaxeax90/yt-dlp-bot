@@ -4,7 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from concurrent import futures
 
-from yt_dlp_bot.database import db, YoutubeWaitingRoom
+from yt_dlp_bot.database import db, YoutubeWaitingRoom, YoutubeVideo, RoomKind
 from yt_dlp_bot.helpers import config, fetch_guild, fetch_channel
 import datetime
 import threading
@@ -98,11 +98,11 @@ class Downloader:
         task = asyncio.create_task(self._download(url, notify, extra_args, event))
         return DownloadTask(task, event)
 
-    async def download_async(self, url: str, guild_id=None, channel_id=None):
+    async def download_async(self, url: str, guild_id=None, channel_id=None, notify=False):
         #self._download(url)
         if guild_id and channel_id:
             db.add_completion_for_url(guild_id, channel_id, url)
-        task = self.create_download_task(url, False, {})
+        task = self.create_download_task(url, notify, {})
         self.current_downloads[url] = task
         await asyncio.wait([v.task for v in self.current_downloads.values()], timeout=1)
 
@@ -166,10 +166,17 @@ class Downloader:
         return False
 
     def receive_waiting_room(self, room: YoutubeWaitingRoom):
-        url = f"https://www.youtube.com/watch?v={room.video_id}"
-        if db.add_subscribed_waiting_room(room, url):
+        if db.add_subscribed_waiting_room(room, room.url):
             guild_info = db.get_guild_info_for_subscription(room.channel_id, room.kind)
             for (guild_id, channel_id) in guild_info:
-                logger.info(f"Adding completion for {url}")
-                db.add_completion_for_url(guild_id, channel_id, url)
+                logger.info(f"Adding completion for {room.url}")
+                db.add_completion_for_url(guild_id, channel_id, room.url)
+
+    async def receive_stream_notification(self, video: YoutubeVideo):
+        guild_info = db.get_guild_info_for_subscription(video.channel_id, RoomKind.STREAM)
+        for (guild_id, channel_id) in guild_info:
+            logger.info(f"Adding completion for {video.url}")
+            db.add_completion_for_url(guild_id, channel_id, video.url)
+        if guild_info:
+            await self.download_async(video.url, notify=True)
             
