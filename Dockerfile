@@ -17,8 +17,7 @@ RUN adduser --uid 1000 --gecos '' --gid 0 --disabled-password dl-bot && \
     mkdir -m 775 /opt/dl-bot && \
     chown -R 1000:0 /opt/dl-bot
 
-RUN echo 'export PATH="$PATH:/home/dl-bot/.local/bin"' >> /etc/profile && \
-    echo 'export PATH="$PATH:/home/dl-bot/.local/bin"' >> /home/dl-bot/.bashrc
+ENV PATH="${PATH}:/home/dl-bot/.local/bin"
 
 WORKDIR /opt/dl-bot
 USER 1000

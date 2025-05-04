@@ -98,30 +98,36 @@ class Downloader:
         if notify:
             await self._notify_for_download(url, f'Started streamlink download of <{url}>')
         video_info = await asyncio.to_thread(self.get_info, url)
-        download_dir = config.yt_dlp_config.get("paths", {}).get("home", "./")
-        video_title = yt_dlp.utils.sanitize_filename(video_info['title']) 
-        video_id = video_info['id']
         video_time = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y%m%d-%H%M%S")
-        ts_filename = f"{video_title}_{video_id}_{video_time}.ts"
-        mp4_filename = f"{video_title}_{video_id}_{video_time}.ts"
-        ts_filepath = os.path.join(download_dir, ts_filename)
-        mp4_filepath = os.path.join(download_dir, ts_filename)
-        logger.info(f"Downloading to {ts_filepath}")
-        args = ['streamlink', url, "best", "-o", ts_filepath]
+        video_title = yt_dlp.utils.sanitize_filename(video_info.get('title', ''))
+        video_id = video_info.get('id', '')
+        def get_filepath(parentdir, extension):
+            return os.path.join(parentdir, f"{video_title}_{video_id}_{video_time}.{extension}")
+        ytdlp_home_dir = config.yt_dlp_config.get("paths", {}).get("home", "./")
+        ytdlp_tmp_dir = config.yt_dlp_config.get("paths", {}).get("temp", ytdlp_home_dir)
+        streamlink_output = get_filepath(ytdlp_tmp_dir, "ts")
+        logger.info(f"Downloading to {streamlink_output}")
+        args = [config.streamlink_config.executable,
+                url,
+                config.streamlink_config.resolution,
+                "-o", streamlink_output]
         logger.info(f"Streamlink cmd: {args}")
 
         proc = await asyncio.create_subprocess_exec(
             *args)
-        result = await proc
+        result = await proc.wait()
         logger.info(f"Process returned result {result}")
 
-        ffmpeg_convert_args = ['ffmpeg', '-i', ts_filename, '-c:v', 'copy', '-c:a', 'copy', mp4_filename]
+        ffmpeg_output = get_filepath(ytdlp_home_dir, "mp4")
+
+        ffmpeg_convert_args = ['ffmpeg', '-i', streamlink_output, '-c:v', 'copy', '-c:a', 'copy', ffmpeg_output]
+        logger.info(f'ffmpeg muxing ts: {ffmpeg_convert_args}')
         proc = await asyncio.create_subprocess_exec(*ffmpeg_convert_args)
-        result = await proc
-        if await proc.returncode == 0:
-            os.remove(ts_filename)
+        result = await proc.wait()
+        if proc.returncode == 0:
+            logger.info(f'ffmpeg success, removing {streamlink_output}')
+            os.remove(streamlink_output)
             
-        # await asyncio.to_thread(_download_impl)
         await self._notify_for_download(url, f'Finished download for {url}')
         db.delete_completion_for_url(url)
 

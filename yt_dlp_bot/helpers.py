@@ -13,12 +13,18 @@ def CLI():
 
 cli_args = CLI()
 
+class StreamlinkConfig(BaseModel):
+    resolution: str = "best"
+    executable: str = "streamlink"
+    
+
 class Config(BaseModel):
     discord_key: str
     database_file: str
     polling_interval_s: int = 60
     yt_dlp_config: dict = {}
     pikl_url: str | None = None
+    streamlink_config : StreamlinkConfig = StreamlinkConfig()
 
 def get_config():
     with open(cli_args.config_file, 'r') as f:
