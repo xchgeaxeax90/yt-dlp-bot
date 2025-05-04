@@ -11,6 +11,7 @@ requests = "2.32.3"
 "yt-dlp" = "^2025.4.30"
 pydantic = "2.11.3"
 httpx = "0.28.1"
+streamlink = "^7.3.0"
 
 [build-system]
 requires = ["poetry-core"]
