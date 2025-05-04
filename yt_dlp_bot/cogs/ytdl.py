@@ -83,6 +83,19 @@ class YtDl(commands.Cog):
         self.downloader.defer_download_until_time(url, time, guild_id, channel_id)
         formatted_dt = discord.utils.format_dt(time, style='F')
         await ctx.send(f"Scheduling download for {formatted_dt}")
+
+    @commands.is_owner()
+    @commands.hybrid_command(
+        name="streamlink-download",
+        brief="Forces a video download through streamlink",
+        description="Forces a video download through streamlink",
+        usage="",
+    )
+    async def streamlink_download(self, ctx: commands.Context, url: str):
+        channel_id = ctx.channel.id
+        guild_id = ctx.guild.id
+        await ctx.send(f"Starting download of <{url}>")
+        await self.downloader.download_async(url, guild_id, channel_id, streamlink=True)
     
     @commands.is_owner()
     @commands.hybrid_command(

@@ -8,6 +8,7 @@ from yt_dlp_bot.database import db, YoutubeWaitingRoom, YoutubeVideo, RoomKind
 from yt_dlp_bot.helpers import config, fetch_guild, fetch_channel
 import datetime
 import threading
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -93,16 +94,50 @@ class Downloader:
         await self._notify_for_download(url, f'Finished download for {url}')
         db.delete_completion_for_url(url)
 
-    def create_download_task(self, url: str, notify: bool, extra_args: dict):
+    async def _download_streamlink(self, url: str, notify: bool, event: threading.Event):
+        if notify:
+            await self._notify_for_download(url, f'Started streamlink download of <{url}>')
+        video_info = await asyncio.to_thread(self.get_info, url)
+        download_dir = config.yt_dlp_config.get("paths", {}).get("home", "./")
+        video_title = yt_dlp.utils.sanitize_filename(video_info['title']) 
+        video_id = video_info['id']
+        video_time = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y%m%d-%H%M%S")
+        ts_filename = f"{video_title}_{video_id}_{video_time}.ts"
+        mp4_filename = f"{video_title}_{video_id}_{video_time}.ts"
+        ts_filepath = os.path.join(download_dir, ts_filename)
+        mp4_filepath = os.path.join(download_dir, ts_filename)
+        logger.info(f"Downloading to {ts_filepath}")
+        args = ['streamlink', url, "best", "-o", ts_filepath]
+        logger.info(f"Streamlink cmd: {args}")
+
+        proc = await asyncio.create_subprocess_exec(
+            *args)
+        result = await proc
+        logger.info(f"Process returned result {result}")
+
+        ffmpeg_convert_args = ['ffmpeg', '-i', ts_filename, '-c:v', 'copy', '-c:a', 'copy', mp4_filename]
+        proc = await asyncio.create_subprocess_exec(*ffmpeg_convert_args)
+        result = await proc
+        if await proc.returncode == 0:
+            os.remove(ts_filename)
+            
+        # await asyncio.to_thread(_download_impl)
+        await self._notify_for_download(url, f'Finished download for {url}')
+        db.delete_completion_for_url(url)
+
+    def create_download_task(self, url: str, notify: bool, extra_args: dict, streamlink: bool):
         event = threading.Event()
-        task = asyncio.create_task(self._download(url, notify, extra_args, event))
+        if streamlink:
+            task = asyncio.create_task(self._download_streamlink(url, notify, event))
+        else:
+            task = asyncio.create_task(self._download(url, notify, extra_args, event))
         return DownloadTask(task, event)
 
-    async def download_async(self, url: str, guild_id=None, channel_id=None, notify=False):
+    async def download_async(self, url: str, guild_id=None, channel_id=None, notify=False, streamlink=False):
         #self._download(url)
         if guild_id and channel_id:
             db.add_completion_for_url(guild_id, channel_id, url)
-        task = self.create_download_task(url, notify, {})
+        task = self.create_download_task(url, notify, {}, streamlink)
         self.current_downloads[url] = task
         await asyncio.wait([v.task for v in self.current_downloads.values()], timeout=1)
 
@@ -178,5 +213,5 @@ class Downloader:
             logger.info(f"Adding completion for {video.url}")
             db.add_completion_for_url(guild_id, channel_id, video.url)
         if guild_info:
-            await self.download_async(video.url, notify=True)
+            await self.download_async(video.url, notify=True, streamlink=True)
             
