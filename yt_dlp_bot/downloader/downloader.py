@@ -163,7 +163,7 @@ class Downloader:
         extra_args = {'wait_for_video': [15, 60]}
 
         # Start asyncio tasks for each video to be downloaded
-        tasks = {url: self.create_download_task(url, True, extra_args) for url in urls }
+        tasks = {url: self.create_download_task(url, True, extra_args, False) for url in urls }
         # The tricky bit, we cannot asyncio.gather(*tasks) here, as it
         # would block the loop calling this task until every scheduled
         # download finishes
