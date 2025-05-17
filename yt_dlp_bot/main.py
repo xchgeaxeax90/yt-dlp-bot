@@ -30,8 +30,12 @@ async def main():
 
     downloader = Downloader(bot)
 
+    http_client = None
+    if helpers.config.pikl_url:
+        http_client = waiting_room_client.AsyncHttpClient(helpers.config.pikl_url)
+
     await bot.add_cog(sync.Sync(bot))
-    await bot.add_cog(ytdl.YtDl(bot, downloader))
+    await bot.add_cog(ytdl.YtDl(bot, downloader, http_client))
     async with bot:
         tasks = []
         tasks.append(bot.start(helpers.config.discord_key))

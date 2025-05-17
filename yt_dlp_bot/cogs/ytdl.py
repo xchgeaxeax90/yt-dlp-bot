@@ -4,10 +4,12 @@ from discord.ext import commands, tasks
 from yt_dlp_bot.helpers import config
 from yt_dlp_bot.database import db, RoomKind
 import yt_dlp_bot.downloader.downloader as dl
+from yt_dlp_bot.pikl_api.waiting_room_client import AsyncHttpClient
 from datetime import datetime, timedelta, timezone
 import shutil
 import re
 import sys
+from typing import Optional
 
 
 hammertime_regex = re.compile(r"<t:([0-9]+):?.*>")
@@ -27,9 +29,10 @@ def parse_text_duration_timedelta(time_str):
 logger = logging.getLogger(__name__)
 
 class YtDl(commands.Cog):
-    def __init__(self, bot, downloader) -> None:
+    def __init__(self, bot, downloader, http_client) -> None:
         self.bot = bot
         self.downloader = downloader
+        self.http_client : Optional[AsyncHttpClient] = http_client
         self.check_tasks.start()
 
     def parse_text_as_datetime(self, time_text: str):
@@ -171,6 +174,7 @@ class YtDl(commands.Cog):
         channel_id = ctx.channel.id
         guild_id = ctx.guild.id
         db.subscribe_to_channel(youtube_channel, kind, guild_id, channel_id)
+        await self.http_client.subscribe_to_channel(guild_id, youtube_channel)
         await ctx.send(f"Subscribed to automatic {kind.value} downloads from {youtube_channel}")
 
     @commands.is_owner()
@@ -183,6 +187,7 @@ class YtDl(commands.Cog):
     async def unsubscribe(self, ctx: commands.Context, youtube_channel: str, kind: RoomKind | None = None):
         guild_id = ctx.guild.id
         db.unsubscribe_from_channel(youtube_channel, kind, guild_id)
+        await self.http_client.unsubscribe_from_channel(guild_id, youtube_channel)
         if kind:
             await ctx.send(f"Unsubscribed to automatic {kind.value} downloads from {youtube_channel}")
         else:
