@@ -110,7 +110,8 @@ class Downloader:
         args = [config.streamlink_config.executable,
                 url,
                 config.streamlink_config.resolution,
-                "-o", streamlink_output]
+                "-o", streamlink_output,
+                *config.streamlink_config.extra_args]
         logger.info(f"Streamlink cmd: {args}")
 
         proc = await asyncio.create_subprocess_exec(

@@ -16,6 +16,7 @@ cli_args = CLI()
 class StreamlinkConfig(BaseModel):
     resolution: str = "best"
     executable: str = "streamlink"
+    extra_args: list = []
     
 
 class Config(BaseModel):
