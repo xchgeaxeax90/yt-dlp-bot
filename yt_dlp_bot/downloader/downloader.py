@@ -58,9 +58,12 @@ class Downloader:
                 if not 'release_timestamp' in video_info:
                     return AvailabilityError('No timestamp found in video info, cannot schedule a download')
                 logger.info(f'Received timestamp {video_info["release_timestamp"]}')
-                timestamp = int(video_info['release_timestamp'])
-                time = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
-                return AvailableFuture(time)
+                if 'release_timestamp' in video_info and video_info['release_timestamp']:
+                    timestamp = int(video_info['release_timestamp'])
+                    time = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
+                    return AvailableFuture(time)
+                else:
+                    return AvailableFuture(datetime.datetime.now())
             else:
                 return AvailableNow
         except Exception as e:
