@@ -10,7 +10,7 @@ requires-python = ">=3.13"
 dependencies = [
  "discord.py >= 2.5.2",
  "requests ~= 2.32.3",
- "yt-dlp >= 2025.8.11", 
+ "yt-dlp (>=2025.8.11)", 
  "pydantic ~= 2.11.3",
  "httpx ~= 0.28.1",
  "streamlink >= 7.5.0"
