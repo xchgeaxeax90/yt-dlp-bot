@@ -27,7 +27,7 @@ class Subscription(commands.Cog):
             await ctx.send_help(ctx.command)
 
     @subscription_group.command(
-        name="subscribe",
+        name="add",
         brief="Subscribes to automatic downloads for a channel",
         description="Subscribes to automatic downloads for a channel",
         usage="",
@@ -40,7 +40,7 @@ class Subscription(commands.Cog):
         await ctx.send(f"Subscribed to automatic {kind.value} downloads from {youtube_channel}")
 
     @subscription_group.command(
-        name="unsubscribe",
+        name="remove",
         brief="Unsubscribes from automatic downloads for a channel",
         description="Unsubscribes from automatic downloads for a channel",
         usage="",
@@ -53,3 +53,21 @@ class Subscription(commands.Cog):
             await ctx.send(f"Unsubscribed to automatic {kind.value} downloads from {youtube_channel}")
         else:
             await ctx.send(f"Unsubscribed to all automatic downloads from {youtube_channel}")
+
+    @subscription_group.command(
+        name="list",
+        brief="Lists all currently subscribed channels",
+        description="Lists all currently subscribed channels for this guild",
+        usage="",
+    )
+    async def list_subscriptions(self, ctx: commands.Context):
+        guild_id = ctx.guild.id
+        subscriptions = self.subscription_service.get_subscriptions(guild_id=guild_id)
+        if not subscriptions:
+            await ctx.send("No channels currently subscribed.")
+            return
+
+        response_message = "Currently subscribed channels:\n"
+        for sub in subscriptions:
+            response_message += f"- {sub.youtube_channel} ({sub.kind.value})\n"
+        await ctx.send(response_message)

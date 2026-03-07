@@ -7,6 +7,12 @@ class RoomKind(Enum):
     STREAM = 'streams'
     PREMIERE = 'videos'
 
+class SubscriptionModel(BaseModel):
+    guild_id: int
+    channel_id: int
+    youtube_channel: str
+    kind: RoomKind
+
 class YoutubeVideo(BaseModel):
     channel_id: str
     video_id: str

@@ -5,7 +5,7 @@ from yt_dlp_bot.repositories.subscription_repository import SubscriptionReposito
 from yt_dlp_bot.repositories.download_repository import DownloadRepository
 from yt_dlp_bot.pikl_api.http_client import AsyncHttpClient
 from yt_dlp_bot.services.download_service import DownloadService
-from yt_dlp_bot.database import YoutubeWaitingRoom, YoutubeVideo, RoomKind
+from yt_dlp_bot.database import YoutubeWaitingRoom, YoutubeVideo, RoomKind, SubscriptionModel, SubscriptionModel
 
 logger = logging.getLogger(__name__)
 
@@ -51,3 +51,27 @@ class SubscriptionService:
             self.download_repository.add_completion_for_url(guild_id, channel_id, video.url)
         if guild_info:
             await self.download_service.initiate_download(video.url, notify=True, streamlink=True)
+
+    def get_subscriptions(self, guild_id: int) -> list[SubscriptionModel]:
+        raw_subscriptions = self.subscription_repository.get_subscriptions(guild_id)
+        subscriptions = []
+        for guild_id, channel_id, youtube_channel, room_kind_value in raw_subscriptions:
+            subscriptions.append(SubscriptionModel(
+                guild_id=guild_id,
+                channel_id=channel_id,
+                youtube_channel=youtube_channel,
+                kind=RoomKind(room_kind_value)
+            ))
+        return subscriptions
+
+    def get_subscriptions(self, guild_id: int) -> list[SubscriptionModel]:
+        raw_subscriptions = self.subscription_repository.get_subscriptions(guild_id)
+        subscriptions = []
+        for guild_id, channel_id, youtube_channel, room_kind_value in raw_subscriptions:
+            subscriptions.append(SubscriptionModel(
+                guild_id=guild_id,
+                channel_id=channel_id,
+                youtube_channel=youtube_channel,
+                kind=RoomKind(room_kind_value)
+            ))
+        return subscriptions
