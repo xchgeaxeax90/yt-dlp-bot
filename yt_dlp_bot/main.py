@@ -8,7 +8,7 @@ from yt_dlp_bot import helpers
 from yt_dlp_bot.database import init_database
 from yt_dlp_bot.downloader.downloader import Downloader
 from yt_dlp_bot.bot import YtDlpBot
-from yt_dlp_bot.cogs import (sync, ytdl)
+from yt_dlp_bot.cogs import (sync, ytdl, subscription)
 from yt_dlp_bot.repositories.download_repository import DownloadRepository
 from yt_dlp_bot.repositories.subscription_repository import SubscriptionRepository
 from yt_dlp_bot.services.notification_service import DiscordNotificationService
@@ -48,14 +48,17 @@ async def main():
     scheduler_service = SchedulerService(download_repository, download_manager)
 
     http_client_instance = None
-    subscription_service = None
     if helpers.config.pikl_url:
         http_client_instance = http_client.AsyncHttpClient(helpers.config.pikl_url)
-        subscription_service = SubscriptionService(subscription_repository, http_client_instance, download_service, download_repository)
+
+    # SubscriptionService needs to be initialized regardless of pikl_url presence
+    subscription_service = SubscriptionService(subscription_repository, http_client_instance, download_service, download_repository)
 
     await bot.add_cog(sync.Sync(bot))
     # Pass all required dependencies to YtDl cog
-    await bot.add_cog(ytdl.YtDl(bot, http_client_instance, download_repository, subscription_repository, download_service, scheduler_service, subscription_service, helpers.config))
+    await bot.add_cog(ytdl.YtDl(bot, http_client_instance, download_repository, download_service, scheduler_service, helpers.config))
+    # Add the new Subscription cog
+    await bot.add_cog(subscription.Subscription(bot, http_client_instance, subscription_service, helpers.config))
     async with bot:
         tasks = []
         tasks.append(bot.start(helpers.config.discord_key))

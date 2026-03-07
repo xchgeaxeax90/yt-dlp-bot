@@ -39,15 +39,17 @@ This document outlines the commands available for the Discord bot.
 *   **Description**: Cancels a download
 *   **Usage**: `y!cancel <url>`
 
-### `subscribe <youtube_channel> <kind>`
+## Subscription Commands
+
+### `subscription subscribe <youtube_channel> <kind>`
 *   **Brief**: Subscribes to automatic downloads for a channel
 *   **Description**: Subscribes to automatic downloads for a channel
-*   **Usage**: `y!subscribe <youtube_channel> <kind>`
+*   **Usage**: `y!subscription subscribe <youtube_channel> <kind>`
 
-### `unsubscribe <youtube_channel> [kind]`
+### `subscription unsubscribe <youtube_channel> [kind]`
 *   **Brief**: Unsubscribes from automatic downloads for a channel
 *   **Description**: Unsubscribes from automatic downloads for a channel
-*   **Usage**: `y!unsubscribe <youtube_channel> [kind]`
+*   **Usage**: `y!subscription unsubscribe <youtube_channel> [kind]`
 
 ## Sync Commands
 

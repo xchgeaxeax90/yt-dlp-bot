@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 from yt_dlp_bot.cogs.ytdl import YtDl
 from yt_dlp_bot.helpers import Config
-from yt_dlp_bot.database import RoomKind
 
 @pytest.fixture
 def mock_bot():
@@ -17,10 +16,6 @@ def mock_download_repository():
     return MagicMock()
 
 @pytest.fixture
-def mock_subscription_repository():
-    return MagicMock()
-
-@pytest.fixture
 def mock_download_service():
     mock_service = MagicMock()
     mock_service.initiate_download = AsyncMock() # This one is awaited in the cog
@@ -31,10 +26,6 @@ def mock_scheduler_service():
     return MagicMock()
 
 @pytest.fixture
-def mock_subscription_service():
-    return MagicMock()
-
-@pytest.fixture
 def mock_config():
     # Provide a default mock config. Can be updated in tests as needed.
     config = Config()
@@ -42,15 +33,13 @@ def mock_config():
     return config
 
 @pytest.fixture
-def ytdl_cog(mock_bot, mock_http_client, mock_download_repository, mock_subscription_repository, mock_download_service, mock_scheduler_service, mock_subscription_service, mock_config):
+def ytdl_cog(mock_bot, mock_http_client, mock_download_repository, mock_download_service, mock_scheduler_service, mock_config):
     return YtDl(
         mock_bot,
         mock_http_client,
         mock_download_repository,
-        mock_subscription_repository,
         mock_download_service,
         mock_scheduler_service,
-        mock_subscription_service,
         mock_config
     )
 
@@ -130,30 +119,4 @@ async def test_cancel_download_command(ytdl_cog, mock_ctx, mock_download_service
     await ytdl_cog.cancel_download.callback(ytdl_cog, mock_ctx, url)
     mock_download_service.cancel_download.assert_called_once_with(url)
     mock_ctx.send.assert_called_once_with("Download cancelled")
-
-@pytest.mark.asyncio
-async def test_subscribe_command(ytdl_cog, mock_ctx, mock_subscription_service, mock_http_client):
-    youtube_channel = "test_channel"
-    kind = RoomKind.STREAM
-    await ytdl_cog.subscribe.callback(ytdl_cog, mock_ctx, youtube_channel, kind)
-    mock_subscription_service.subscribe_to_channel.assert_called_once_with(youtube_channel, kind, mock_ctx.guild.id, mock_ctx.channel.id)
-    mock_http_client.subscribe_to_channel.assert_called_once_with(mock_ctx.guild.id, youtube_channel)
-    mock_ctx.send.assert_called_once_with(f"Subscribed to automatic {kind.value} downloads from {youtube_channel}")
-
-@pytest.mark.asyncio
-async def test_unsubscribe_command_with_kind(ytdl_cog, mock_ctx, mock_subscription_service, mock_http_client):
-    youtube_channel = "test_channel"
-    kind = RoomKind.PREMIERE
-    await ytdl_cog.unsubscribe.callback(ytdl_cog, mock_ctx, youtube_channel, kind)
-    mock_subscription_service.unsubscribe_from_channel.assert_called_once_with(youtube_channel, kind, mock_ctx.guild.id)
-    mock_http_client.unsubscribe_from_channel.assert_called_once_with(mock_ctx.guild.id, youtube_channel)
-    mock_ctx.send.assert_called_once_with(f"Unsubscribed to automatic {kind.value} downloads from {youtube_channel}")
-
-@pytest.mark.asyncio
-async def test_unsubscribe_command_without_kind(ytdl_cog, mock_ctx, mock_subscription_service, mock_http_client):
-    youtube_channel = "test_channel"
-    await ytdl_cog.unsubscribe.callback(ytdl_cog, mock_ctx, youtube_channel, None)
-    mock_subscription_service.unsubscribe_from_channel.assert_called_once_with(youtube_channel, None, mock_ctx.guild.id)
-    mock_http_client.unsubscribe_from_channel.assert_called_once_with(mock_ctx.guild.id, youtube_channel)
-    mock_ctx.send.assert_called_once_with(f"Unsubscribed to all automatic downloads from {youtube_channel}")
 

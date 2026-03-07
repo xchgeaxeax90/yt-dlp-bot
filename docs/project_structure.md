@@ -51,9 +51,11 @@ This directory contains the main logic and components of the Discord bot.
     *   This directory holds Discord "cogs" – modular extensions that encapsulate commands, listeners, and other Discord.py features.
     *   `sync.py`: A cog likely responsible for synchronizing Discord commands or other bot state.
     *   `ytdl.py`: The main cog for YouTube-DL functionality.
-        *   Contains Discord commands for users to interact with the download system (e.g., `download`, `scheduled-download`, `streamlink-download`, `df` for disk usage, `get-running-downloads`, `get-scheduled-downloads`, `cancel`, `subscribe`, `unsubscribe`).
+        *   Contains Discord commands for users to interact with the download system (e.g., `download`, `scheduled-download`, `streamlink-download`, `df` for disk usage, `get-running-downloads`, `get-scheduled-downloads`, `cancel`).
         *   Manages parsing of time durations and Discord timestamps.
         *   Includes a background task (`check_tasks`) that periodically calls `Downloader.schedule_deferred_downloads` and `download_repository.cleanup_future_downloads`.
+    *   `subscription.py`: A cog responsible for managing YouTube channel subscriptions.
+        *   Contains Discord commands for users to subscribe and unsubscribe from channels.
 
 *   `downloader/`:
     *   Contains the core logic for handling media downloads.
