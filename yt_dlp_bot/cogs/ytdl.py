@@ -5,50 +5,30 @@ from yt_dlp_bot.helpers import config
 from yt_dlp_bot.database import RoomKind
 from yt_dlp_bot.repositories.download_repository import DownloadRepository
 from yt_dlp_bot.repositories.subscription_repository import SubscriptionRepository
-import yt_dlp_bot.downloader.downloader as dl
 from yt_dlp_bot.pikl_api.waiting_room_client import AsyncHttpClient
-from datetime import datetime, timedelta, timezone
+from yt_dlp_bot.services.download_service import DownloadService
+from yt_dlp_bot.services.scheduler_service import SchedulerService
+from yt_dlp_bot.services.subscription_service import SubscriptionService # New import
 import shutil
-import re
 import sys
 from typing import Optional
-
-
-hammertime_regex = re.compile(r"<t:([0-9]+):?.*>")
-time_regex = re.compile(r'((?P<days>\d+?)d)?((?P<hours>\d+?)h)?((?P<minutes>\d+?)m)?((?P<seconds>\d+?)s)?')
-
-def parse_text_duration_timedelta(time_str):
-    parts = time_regex.match(time_str)
-    if not parts:
-        return None
-    parts = parts.groupdict()
-    time_params = {}
-    for name, param in parts.items():
-        if param:
-            time_params[name] = int(param)
-    return timedelta(**time_params)
 
 logger = logging.getLogger(__name__)
 
 class YtDl(commands.Cog):
-    def __init__(self, bot, downloader, http_client, download_repository: DownloadRepository, subscription_repository: SubscriptionRepository) -> None:
+    def __init__(self, bot, http_client: AsyncHttpClient, download_repository: DownloadRepository, subscription_repository: SubscriptionRepository, download_service: DownloadService, scheduler_service: SchedulerService, subscription_service: SubscriptionService) -> None:
         self.bot = bot
-        self.downloader = downloader
-        self.http_client : Optional[AsyncHttpClient] = http_client
+        self.http_client : Optional[AsyncHttpClient] = http_client # Keep this for direct http_client calls in cog
         self.download_repository = download_repository
-        self.subscription_repository = subscription_repository
-        self.check_tasks.start()
+        self.subscription_repository = subscription_repository # Re-added
+        self.download_service = download_service
+        self.scheduler_service = scheduler_service
+        self.subscription_service = subscription_service # New
 
-    def parse_text_as_datetime(self, time_text: str):
-        """Parses either a discord timestamp <t:unixepoch:F> or a human readable string 2d1h5m0s
-        as a datetime"""
-        if (matches := hammertime_regex.match(time_text)):
-            unix_epoch = int(matches.group(1))
-            return datetime.fromtimestamp(unix_epoch).astimezone(timezone.utc)
-        timedelta = parse_text_duration_timedelta(time_text)
-        if not timedelta:
-            return None
-        return datetime.now().astimezone(timezone.utc)+timedelta
+    @commands.Cog.listener()
+    async def on_ready(self):
+        logger.info("Starting scheduler service")
+        self.scheduler_service.start()
 
     @commands.is_owner()
     @commands.hybrid_command(
@@ -60,20 +40,10 @@ class YtDl(commands.Cog):
     )
     async def download(self, ctx: commands.Context, url: str):
         await ctx.defer()
-        availability = await self.downloader.get_availability(url)
         channel_id = ctx.channel.id
         guild_id = ctx.guild.id
-        logger.info(f"Got availability {availability}")
-        match availability:
-            case dl.AvailabilityError(errstr):
-                await ctx.send(errstr)
-            case dl.AvailableNow:
-                await ctx.send("Downloading video now")
-                await self.downloader.download_async(url, guild_id, channel_id)
-            case dl.AvailableFuture(time):
-                self.downloader.defer_download_until_time(url, time, guild_id, channel_id)
-                formatted_dt = discord.utils.format_dt(time, style='F')
-                await ctx.send(f"Scheduling download for {formatted_dt}")
+        response_message = await self.download_service.initiate_download(url, guild_id, channel_id)
+        await ctx.send(response_message)
 
 
     @commands.is_owner()
@@ -86,10 +56,8 @@ class YtDl(commands.Cog):
     async def scheduled_download(self, ctx: commands.Context, url: str, timestamp:str):
         channel_id = ctx.channel.id
         guild_id = ctx.guild.id
-        time = self.parse_text_as_datetime(timestamp)
-        self.downloader.defer_download_until_time(url, time, guild_id, channel_id)
-        formatted_dt = discord.utils.format_dt(time, style='F')
-        await ctx.send(f"Scheduling download for {formatted_dt}")
+        response_message = self.download_service.schedule_download(url, timestamp, guild_id, channel_id)
+        await ctx.send(response_message)
 
     @commands.is_owner()
     @commands.hybrid_command(
@@ -101,8 +69,8 @@ class YtDl(commands.Cog):
     async def streamlink_download(self, ctx: commands.Context, url: str):
         channel_id = ctx.channel.id
         guild_id = ctx.guild.id
-        await ctx.send(f"Starting download of <{url}>")
-        await self.downloader.download_async(url, guild_id, channel_id, streamlink=True)
+        response_message = await self.download_service.initiate_download(url, guild_id, channel_id, streamlink=True)
+        await ctx.send(f"{response_message} <{url}>")
     
     @commands.is_owner()
     @commands.hybrid_command(
@@ -135,9 +103,8 @@ class YtDl(commands.Cog):
         usage="",
     )
     async def running_downloads(self, ctx: commands.Context):
-        urls = self.downloader.get_running_downloads()
-        msg = "\n".join([f'<{url}>' for url in urls])
-        await ctx.send("Running downloads:\n" + msg)
+        response_message = self.download_service.get_running_downloads()
+        await ctx.send(response_message)
     
     @commands.is_owner()
     @commands.hybrid_command(
@@ -147,12 +114,8 @@ class YtDl(commands.Cog):
         usage="",
     )
     async def scheduled_downloads(self, ctx: commands.Context):
-        results = self.downloader.get_scheduled_downloads()
-        lines = []
-        for (url, timestamp) in results:
-            lines.append(f"<{url}> <t:{int(timestamp)}:F>")
-        msg = "\n".join(lines)
-        await ctx.send("Scheduled Downloads:\n" + msg)
+        response_message = self.download_service.get_scheduled_downloads()
+        await ctx.send(response_message)
 
     @commands.is_owner()
     @commands.hybrid_command(
@@ -162,10 +125,8 @@ class YtDl(commands.Cog):
         usage="",
     )
     async def cancel_download(self, ctx: commands.Context, url: str):
-        if self.downloader.cancel_download(url):
-            await ctx.send(f"Successfully cancelled download of <{url}>")
-        else:
-            await ctx.send(f"Could not find <{url}> in running or future downloads")
+        response_message = self.download_service.cancel_download(url)
+        await ctx.send(response_message)
 
     @commands.is_owner()
     @commands.hybrid_command(
@@ -177,7 +138,7 @@ class YtDl(commands.Cog):
     async def subscribe(self, ctx: commands.Context, youtube_channel: str, kind: RoomKind):
         channel_id = ctx.channel.id
         guild_id = ctx.guild.id
-        self.subscription_repository.subscribe_to_channel(youtube_channel, kind, guild_id, channel_id)
+        self.subscription_service.subscribe_to_channel(youtube_channel, kind, guild_id, channel_id)
         await self.http_client.subscribe_to_channel(guild_id, youtube_channel)
         await ctx.send(f"Subscribed to automatic {kind.value} downloads from {youtube_channel}")
 
@@ -190,14 +151,11 @@ class YtDl(commands.Cog):
     )
     async def unsubscribe(self, ctx: commands.Context, youtube_channel: str, kind: RoomKind | None = None):
         guild_id = ctx.guild.id
-        self.subscription_repository.unsubscribe_from_channel(youtube_channel, kind, guild_id)
+        self.subscription_service.unsubscribe_from_channel(youtube_channel, kind, guild_id)
         await self.http_client.unsubscribe_from_channel(guild_id, youtube_channel)
         if kind:
             await ctx.send(f"Unsubscribed to automatic {kind.value} downloads from {youtube_channel}")
         else:
             await ctx.send(f"Unsubscribed to all automatic downloads from {youtube_channel}")
 
-    @tasks.loop(seconds=config.polling_interval_s, reconnect=True)
-    async def check_tasks(self):
-        await self.downloader.schedule_deferred_downloads(config.polling_interval_s)
-        self.download_repository.cleanup_future_downloads()
+

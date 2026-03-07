@@ -70,7 +70,7 @@ class Downloader:
                 else:
                     return AvailableFuture(datetime.datetime.now())
             else:
-                return AvailableNow
+                return AvailableNow()
         except Exception as e:
             return AvailabilityError(str(e))
 
@@ -227,4 +227,5 @@ class Downloader:
             self.download_repository.add_completion_for_url(guild_id, channel_id, video.url)
         if guild_info:
             await self.download_async(video.url, notify=True, streamlink=True)
+
             

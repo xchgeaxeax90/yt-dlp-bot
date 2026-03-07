@@ -12,6 +12,11 @@ from yt_dlp_bot.cogs import (sync, ytdl)
 from yt_dlp_bot.repositories.download_repository import DownloadRepository
 from yt_dlp_bot.repositories.subscription_repository import SubscriptionRepository
 from yt_dlp_bot.services.notification_service import DiscordNotificationService
+from yt_dlp_bot.services.download_manager import DownloadManager
+from yt_dlp_bot.services.download_service import DownloadService
+from yt_dlp_bot.services.scheduler_service import SchedulerService
+from yt_dlp_bot.services.subscription_service import SubscriptionService
+
 
 from yt_dlp_bot.pikl_api import waiting_room_client
 
@@ -38,18 +43,24 @@ async def main():
     notification_service = DiscordNotificationService(bot)
 
     downloader = Downloader(download_repository, subscription_repository, notification_service)
+    download_manager = DownloadManager(downloader, download_repository, notification_service)
+    download_service = DownloadService(downloader, download_repository, download_manager)
+    scheduler_service = SchedulerService(download_repository, download_manager)
 
     http_client = None
+    subscription_service = None
     if helpers.config.pikl_url:
         http_client = waiting_room_client.AsyncHttpClient(helpers.config.pikl_url)
+        subscription_service = SubscriptionService(subscription_repository, http_client, download_service, download_repository)
 
     await bot.add_cog(sync.Sync(bot))
-    await bot.add_cog(ytdl.YtDl(bot, downloader, http_client, download_repository, subscription_repository))
+    # Pass all required dependencies to YtDl cog
+    await bot.add_cog(ytdl.YtDl(bot, http_client, download_repository, subscription_repository, download_service, scheduler_service, subscription_service))
     async with bot:
         tasks = []
         tasks.append(bot.start(helpers.config.discord_key))
         if helpers.config.pikl_url:
-            tasks.append(waiting_room_client.run_api_client(helpers.config.pikl_url, downloader))
+            tasks.append(waiting_room_client.run_api_client(helpers.config.pikl_url, subscription_service))
 
         await asyncio.gather(*tasks)
 
