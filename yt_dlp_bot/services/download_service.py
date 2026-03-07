@@ -15,14 +15,14 @@ time_regex = re.compile(r'((?P<days>\d+?)d)?((?P<hours>\d+?)h)?((?P<minutes>\d+?
 
 def parse_text_duration_timedelta(time_str):
     parts = time_regex.match(time_str)
-    if not parts:
+    if not parts or not any(parts.groups()):
         return None
     parts = parts.groupdict()
     time_params = {}
     for name, param in parts.items():
         if param:
             time_params[name] = int(param)
-    return timedelta(**time_params)
+    return timedelta(**time_params) if time_params else None
 
 class DownloadService:
     def __init__(self, downloader: Downloader, download_repository: DownloadRepository, download_manager: DownloadManager):

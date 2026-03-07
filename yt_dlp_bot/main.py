@@ -18,7 +18,7 @@ from yt_dlp_bot.services.scheduler_service import SchedulerService
 from yt_dlp_bot.services.subscription_service import SubscriptionService
 
 
-from yt_dlp_bot.pikl_api import waiting_room_client
+from yt_dlp_bot.pikl_api import waiting_room_client, http_client
 
 logger = logging.getLogger(__name__)
 
@@ -47,15 +47,15 @@ async def main():
     download_service = DownloadService(downloader, download_repository, download_manager)
     scheduler_service = SchedulerService(download_repository, download_manager)
 
-    http_client = None
+    http_client_instance = None
     subscription_service = None
     if helpers.config.pikl_url:
-        http_client = waiting_room_client.AsyncHttpClient(helpers.config.pikl_url)
-        subscription_service = SubscriptionService(subscription_repository, http_client, download_service, download_repository)
+        http_client_instance = http_client.AsyncHttpClient(helpers.config.pikl_url)
+        subscription_service = SubscriptionService(subscription_repository, http_client_instance, download_service, download_repository)
 
     await bot.add_cog(sync.Sync(bot))
     # Pass all required dependencies to YtDl cog
-    await bot.add_cog(ytdl.YtDl(bot, http_client, download_repository, subscription_repository, download_service, scheduler_service, subscription_service))
+    await bot.add_cog(ytdl.YtDl(bot, http_client_instance, download_repository, subscription_repository, download_service, scheduler_service, subscription_service))
     async with bot:
         tasks = []
         tasks.append(bot.start(helpers.config.discord_key))
