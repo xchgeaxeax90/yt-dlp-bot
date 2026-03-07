@@ -5,9 +5,13 @@ from discord.ext import commands
 
 
 from yt_dlp_bot import helpers
+from yt_dlp_bot.database import init_database
 from yt_dlp_bot.downloader.downloader import Downloader
 from yt_dlp_bot.bot import YtDlpBot
 from yt_dlp_bot.cogs import (sync, ytdl)
+from yt_dlp_bot.repositories.download_repository import DownloadRepository
+from yt_dlp_bot.repositories.subscription_repository import SubscriptionRepository
+from yt_dlp_bot.services.notification_service import DiscordNotificationService
 
 from yt_dlp_bot.pikl_api import waiting_room_client
 
@@ -27,15 +31,20 @@ async def main():
 
     bot = YtDlpBot(
         intents)
+        
+    con = init_database(helpers.config.database_file)
+    download_repository = DownloadRepository(con)
+    subscription_repository = SubscriptionRepository(con)
+    notification_service = DiscordNotificationService(bot)
 
-    downloader = Downloader(bot)
+    downloader = Downloader(download_repository, subscription_repository, notification_service)
 
     http_client = None
     if helpers.config.pikl_url:
         http_client = waiting_room_client.AsyncHttpClient(helpers.config.pikl_url)
 
     await bot.add_cog(sync.Sync(bot))
-    await bot.add_cog(ytdl.YtDl(bot, downloader, http_client))
+    await bot.add_cog(ytdl.YtDl(bot, downloader, http_client, download_repository, subscription_repository))
     async with bot:
         tasks = []
         tasks.append(bot.start(helpers.config.discord_key))

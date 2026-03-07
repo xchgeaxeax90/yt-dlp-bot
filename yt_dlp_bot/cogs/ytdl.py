@@ -2,7 +2,9 @@ import logging
 import discord
 from discord.ext import commands, tasks
 from yt_dlp_bot.helpers import config
-from yt_dlp_bot.database import db, RoomKind
+from yt_dlp_bot.database import RoomKind
+from yt_dlp_bot.repositories.download_repository import DownloadRepository
+from yt_dlp_bot.repositories.subscription_repository import SubscriptionRepository
 import yt_dlp_bot.downloader.downloader as dl
 from yt_dlp_bot.pikl_api.waiting_room_client import AsyncHttpClient
 from datetime import datetime, timedelta, timezone
@@ -29,10 +31,12 @@ def parse_text_duration_timedelta(time_str):
 logger = logging.getLogger(__name__)
 
 class YtDl(commands.Cog):
-    def __init__(self, bot, downloader, http_client) -> None:
+    def __init__(self, bot, downloader, http_client, download_repository: DownloadRepository, subscription_repository: SubscriptionRepository) -> None:
         self.bot = bot
         self.downloader = downloader
         self.http_client : Optional[AsyncHttpClient] = http_client
+        self.download_repository = download_repository
+        self.subscription_repository = subscription_repository
         self.check_tasks.start()
 
     def parse_text_as_datetime(self, time_text: str):
@@ -173,7 +177,7 @@ class YtDl(commands.Cog):
     async def subscribe(self, ctx: commands.Context, youtube_channel: str, kind: RoomKind):
         channel_id = ctx.channel.id
         guild_id = ctx.guild.id
-        db.subscribe_to_channel(youtube_channel, kind, guild_id, channel_id)
+        self.subscription_repository.subscribe_to_channel(youtube_channel, kind, guild_id, channel_id)
         await self.http_client.subscribe_to_channel(guild_id, youtube_channel)
         await ctx.send(f"Subscribed to automatic {kind.value} downloads from {youtube_channel}")
 
@@ -186,7 +190,7 @@ class YtDl(commands.Cog):
     )
     async def unsubscribe(self, ctx: commands.Context, youtube_channel: str, kind: RoomKind | None = None):
         guild_id = ctx.guild.id
-        db.unsubscribe_from_channel(youtube_channel, kind, guild_id)
+        self.subscription_repository.unsubscribe_from_channel(youtube_channel, kind, guild_id)
         await self.http_client.unsubscribe_from_channel(guild_id, youtube_channel)
         if kind:
             await ctx.send(f"Unsubscribed to automatic {kind.value} downloads from {youtube_channel}")
@@ -196,4 +200,4 @@ class YtDl(commands.Cog):
     @tasks.loop(seconds=config.polling_interval_s, reconnect=True)
     async def check_tasks(self):
         await self.downloader.schedule_deferred_downloads(config.polling_interval_s)
-        db.cleanup_future_downloads()
+        self.download_repository.cleanup_future_downloads()

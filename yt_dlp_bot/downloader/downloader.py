@@ -4,8 +4,11 @@ import asyncio
 from dataclasses import dataclass
 from concurrent import futures
 
-from yt_dlp_bot.database import db, YoutubeWaitingRoom, YoutubeVideo, RoomKind
-from yt_dlp_bot.helpers import config, fetch_guild, fetch_channel
+from yt_dlp_bot.database import YoutubeWaitingRoom, YoutubeVideo, RoomKind
+from yt_dlp_bot.helpers import config
+from yt_dlp_bot.repositories.download_repository import DownloadRepository
+from yt_dlp_bot.repositories.subscription_repository import SubscriptionRepository
+from yt_dlp_bot.services.notification_service import NotificationService
 import datetime
 import threading
 import os
@@ -37,9 +40,11 @@ class DownloadTask:
     
 
 class Downloader:
-    def __init__(self, bot):
+    def __init__(self, download_repository: DownloadRepository, subscription_repository: SubscriptionRepository, notification_service: NotificationService):
         self.executor = futures.ThreadPoolExecutor(max_workers=None)
-        self.bot = bot
+        self.download_repository = download_repository
+        self.subscription_repository = subscription_repository
+        self.notification_service = notification_service
         self.current_downloads = {}
 
     def get_info(self, url: str):
@@ -71,12 +76,10 @@ class Downloader:
 
     async def _notify_for_download(self, url: str, message: str):
         logger.info("Post completion")
-        completion = db.get_completion_channel_for_url(url)
+        completion = self.download_repository.get_completion_channel_for_url(url)
         if completion:
             (guild_id, channel_id) = completion
-            guild = await fetch_guild(self.bot, guild_id)
-            channel = await fetch_channel(guild, channel_id)
-            await channel.send(message)
+            await self.notification_service.notify(guild_id, channel_id, message)
 
 
     async def _download(self, url: str, notify: bool, extra_args: dict, event: threading.Event):
@@ -95,7 +98,7 @@ class Downloader:
                 logger.info(f'Finished download of {url}')
         await asyncio.to_thread(_download_impl)
         await self._notify_for_download(url, f'Finished download for {url}')
-        db.delete_completion_for_url(url)
+        self.download_repository.delete_completion_for_url(url)
 
     async def _download_streamlink(self, url: str, notify: bool, event: threading.Event):
         if notify:
@@ -133,7 +136,7 @@ class Downloader:
             os.remove(streamlink_output)
             
         await self._notify_for_download(url, f'Finished download for {url}')
-        db.delete_completion_for_url(url)
+        self.download_repository.delete_completion_for_url(url)
 
     def create_download_task(self, url: str, notify: bool, extra_args: dict, streamlink: bool):
         event = threading.Event()
@@ -146,7 +149,7 @@ class Downloader:
     async def download_async(self, url: str, guild_id=None, channel_id=None, notify=False, streamlink=False):
         #self._download(url)
         if guild_id and channel_id:
-            db.add_completion_for_url(guild_id, channel_id, url)
+            self.download_repository.add_completion_for_url(guild_id, channel_id, url)
         task = self.create_download_task(url, notify, {}, streamlink)
         self.current_downloads[url] = task
         await asyncio.wait([v.task for v in self.current_downloads.values()], timeout=1)
@@ -154,14 +157,14 @@ class Downloader:
     def defer_download_until_time(self, url: str, time: datetime, guild_id=None, channel_id=None):
         utctimestamp = time.timestamp()
         logger.info(f'Deferring download of {url} until {utctimestamp}')
-        db.add_future_download(url, int(utctimestamp))
+        self.download_repository.add_future_download(url, int(utctimestamp))
         if guild_id and channel_id:
-            db.add_completion_for_url(guild_id, channel_id, url)
+            self.download_repository.add_completion_for_url(guild_id, channel_id, url)
     
 
     async def schedule_deferred_downloads(self, loop_interval_s):
-        urls = db.get_downloads_now(60*2)
-        [db.delete_future_download(url) for url in urls]
+        urls = self.download_repository.get_downloads_now(60*2)
+        [self.download_repository.delete_future_download(url) for url in urls]
         if urls:
             logger.info(f'Downloading {urls}')
         extra_args = {'wait_for_video': [15, 60]}
@@ -195,33 +198,33 @@ class Downloader:
         return self.current_downloads.keys()
 
     def get_scheduled_downloads(self):
-        return db.get_all_scheduled_downloads()
+        return self.download_repository.get_all_scheduled_downloads()
 
     def cancel_download(self, url):
         if url in self.current_downloads:
             logger.info(f'Setting event {self.current_downloads[url].event}')
             self.current_downloads[url].event.set()
             return True
-        scheduled_downloads = db.get_all_scheduled_downloads()
+        scheduled_downloads = self.download_repository.get_all_scheduled_downloads()
         urls = {r[0] for r in scheduled_downloads}
         if url in urls:
             # Disable here because we want it to reject nuisance updates from the pikl api if we delete a waiting room
-            db.disable_future_download(url)
+            self.download_repository.disable_future_download(url)
             return True
         return False
 
     def receive_waiting_room(self, room: YoutubeWaitingRoom):
-        if db.add_subscribed_waiting_room(room, room.url):
-            guild_info = db.get_guild_info_for_subscription(room.channel_id, room.kind)
+        if self.download_repository.add_subscribed_waiting_room(room, room.url):
+            guild_info = self.subscription_repository.get_guild_info_for_subscription(room.channel_id, room.kind)
             for (guild_id, channel_id) in guild_info:
                 logger.info(f"Adding completion for {room.url}")
-                db.add_completion_for_url(guild_id, channel_id, room.url)
+                self.download_repository.add_completion_for_url(guild_id, channel_id, room.url)
 
     async def receive_stream_notification(self, video: YoutubeVideo):
-        guild_info = db.get_guild_info_for_subscription(video.channel_id, RoomKind.STREAM)
+        guild_info = self.subscription_repository.get_guild_info_for_subscription(video.channel_id, RoomKind.STREAM)
         for (guild_id, channel_id) in guild_info:
             logger.info(f"Adding completion for {video.url}")
-            db.add_completion_for_url(guild_id, channel_id, video.url)
+            self.download_repository.add_completion_for_url(guild_id, channel_id, video.url)
         if guild_info:
             await self.download_async(video.url, notify=True, streamlink=True)
             
