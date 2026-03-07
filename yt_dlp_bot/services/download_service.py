@@ -5,7 +5,8 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from yt_dlp_bot.services.download_manager import DownloadManager
-from yt_dlp_bot.downloader.downloader import AvailabilityError, AvailableFuture, AvailableNow
+from yt_dlp_bot.downloader.downloader import Downloader, AvailabilityError, AvailableFuture, AvailableNow
+from yt_dlp_bot.repositories.download_repository import DownloadRepository
 
 logger = logging.getLogger(__name__)
 

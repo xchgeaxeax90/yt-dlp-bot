@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 
 from yt_dlp_bot.repositories.subscription_repository import SubscriptionRepository
+from yt_dlp_bot.repositories.download_repository import DownloadRepository
 from yt_dlp_bot.pikl_api.waiting_room_client import AsyncHttpClient
 from yt_dlp_bot.services.download_service import DownloadService
 from yt_dlp_bot.database import YoutubeWaitingRoom, YoutubeVideo, RoomKind
