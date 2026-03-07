@@ -7,8 +7,6 @@ from yt_dlp_bot.repositories.download_repository import DownloadRepository
 from yt_dlp_bot.pikl_api.http_client import AsyncHttpClient
 from yt_dlp_bot.services.download_service import DownloadService
 from yt_dlp_bot.services.scheduler_service import SchedulerService
-import shutil
-import sys
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -69,29 +67,6 @@ class YtDl(commands.Cog):
         response_message = await self.download_service.initiate_download(url, guild_id, channel_id, streamlink=True)
         await ctx.send(f"{response_message} <{url}>")
     
-    @commands.is_owner()
-    @commands.hybrid_command(
-        name="df",
-        brief="Gets disk usage of the download directory",
-        description="Gets disk usage of the download directory",
-        usage="",
-    )
-    async def df(self, ctx: commands.Context):
-        if not 'paths' in self.config.yt_dlp_config or not 'home' in self.config.yt_dlp_config['paths']:
-            space = shutil.disk_usage('.')
-        else:
-            space = shutil.disk_usage(self.config.yt_dlp_config['paths']['home'])
-        MiB = 1024 * 1024
-        GiB = 1024 * MiB
-        TiB = 1024 * GiB
-        if space.free > TiB:
-            msg = f'Free space {space.free/TiB:.1f} TiB'
-        elif space.free > GiB:
-            msg = f'Free space {space.free/GiB:.1f} GiB'
-        else:
-            msg = f'Free space {space.free/MiB:.1f} MiB'
-        await ctx.send(msg)
-
     @commands.is_owner()
     @commands.hybrid_command(
         name="get-running-downloads",

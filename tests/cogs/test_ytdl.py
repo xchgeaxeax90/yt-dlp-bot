@@ -82,23 +82,6 @@ async def test_streamlink_download_command(ytdl_cog, mock_ctx, mock_download_ser
     mock_ctx.send.assert_called_once_with(f"Streamlink download initiated. <{url}>")
 
 @pytest.mark.asyncio
-async def test_df_command_with_home_path(ytdl_cog, mock_ctx, mock_config, mocker):
-    mocker.patch("shutil.disk_usage", return_value=MagicMock(free=2 * (1024**3))) # 2 GiB free
-    await ytdl_cog.df.callback(ytdl_cog, mock_ctx)
-    mock_ctx.send.assert_called_once_with("Free space 2.0 GiB")
-    mock_ctx.send.reset_mock() # Reset mock for the second call
-    mocker.patch("shutil.disk_usage", return_value=MagicMock(free=2 * (1024**4))) # 2 TiB free
-    await ytdl_cog.df.callback(ytdl_cog, mock_ctx)
-    mock_ctx.send.assert_called_once_with("Free space 2.0 TiB")
-
-@pytest.mark.asyncio
-async def test_df_command_without_home_path(ytdl_cog, mock_ctx, mock_config, mocker):
-    mock_config.yt_dlp_config = {} # No paths config
-    mocker.patch("shutil.disk_usage", return_value=MagicMock(free=500 * (1024**2))) # 500 MiB free
-    await ytdl_cog.df.callback(ytdl_cog, mock_ctx)
-    mock_ctx.send.assert_called_once_with("Free space 500.0 MiB")
-
-@pytest.mark.asyncio
 async def test_running_downloads_command(ytdl_cog, mock_ctx, mock_download_service):
     mock_download_service.get_running_downloads.return_value = "Running downloads list"
     await ytdl_cog.running_downloads.callback(ytdl_cog, mock_ctx)
