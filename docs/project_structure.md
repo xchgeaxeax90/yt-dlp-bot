@@ -86,8 +86,12 @@ This directory contains the main logic and components of the Discord bot.
 
 *   `services/`:
     *   This layer contains business logic and orchestrates operations, often using repositories.
+    *   `download_manager.py`: Manages the lifecycle of active and scheduled downloads, interacting with `yt-dlp` and `streamlink`.
+    *   `download_service.py`: Provides an interface for initiating, scheduling, cancelling, and querying download statuses.
     *   `notification_service.py`:
         *   `DiscordNotificationService`: Handles sending notifications back to Discord channels, typically after a download starts or completes.
+    *   `scheduler_service.py`: Manages the scheduling and execution of recurring tasks, such as checking for deferred downloads.
+    *   `subscription_service.py`: Manages user subscriptions to YouTube channels for automatic downloads, interacting with the subscription repository.
 
 ## Configuration
 
