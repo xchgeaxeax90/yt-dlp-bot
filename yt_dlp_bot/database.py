@@ -44,4 +44,11 @@ def _setup_tables(con: sqlite3.Connection):
         );""")
         con.execute("""CREATE TABLE IF NOT EXISTS subscribed_channels (
             guild_id integer, channel_id integer, youtube_channel text, room_kind text, UNIQUE(guild_id, youtube_channel, room_kind));""")
+        con.execute("""CREATE TABLE IF NOT EXISTS downloaded_files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            url TEXT,
+            filepath TEXT,
+            download_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_public INTEGER
+        );""")
 

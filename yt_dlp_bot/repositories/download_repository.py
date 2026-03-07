@@ -43,6 +43,25 @@ class DownloadRepository:
             self.con.execute("""DELETE FROM future_downloads WHERE url=?""",
                              (url,))
 
+    def add_downloaded_file(self, url: str, filepath: str):
+        with self.con:
+            self.con.execute("""INSERT INTO downloaded_files(url, filepath)
+            VALUES (?, ?)""", (url, filepath))
+
+    def get_downloaded_files(self):
+        results = self.con.execute("""SELECT id, url, filepath, download_time, is_public FROM downloaded_files ORDER BY download_time DESC;""").fetchall()
+        return results
+
+    def get_downloaded_file_by_id(self, file_id: int):
+        return self.con.execute("""SELECT filepath FROM downloaded_files
+            WHERE id = ?;""", (file_id, )).fetchone()
+
+    def delete_downloaded_file(self, file_id: int):
+        with self.con:
+            self.con.execute("""DELETE FROM downloaded_files
+            WHERE id = ?;""", (file_id, ))
+
+
     def disable_future_download(self, url: str):
         with self.con:
             self.con.execute("""UPDATE future_downloads SET valid=0 WHERE url=?""",

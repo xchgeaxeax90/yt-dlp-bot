@@ -94,9 +94,16 @@ class Downloader:
         def _download_impl():
             with yt_dlp.YoutubeDL(config.yt_dlp_config | extra_args | hook_args) as ydl:
                 logger.info(f'Initiating download of {url}')
-                ydl.download(url)
-                logger.info(f'Finished download of {url}')
-        await asyncio.to_thread(_download_impl)
+                info = ydl.extract_info(url, download=True)
+                if not info:
+                    logger.error(f'Failed to extract info for {url}')
+                    return None
+                filename = ydl.prepare_filename(info)
+                logger.info(f'Finished download of {url} -> {filename=}')
+                return filename
+        filename = await asyncio.to_thread(_download_impl)
+        if filename:
+            self.download_repository.add_downloaded_file(url, filename)
         await self._notify_for_download(url, f'Finished download for {url}')
         self.download_repository.delete_completion_for_url(url)
 
@@ -134,6 +141,7 @@ class Downloader:
         if proc.returncode == 0:
             logger.info(f'ffmpeg success, removing {streamlink_output}')
             os.remove(streamlink_output)
+            self.download_repository.add_downloaded_file(url, ffmpeg_output)
             
         await self._notify_for_download(url, f'Finished download for {url}')
         self.download_repository.delete_completion_for_url(url)

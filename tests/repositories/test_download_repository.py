@@ -1,3 +1,4 @@
+
 import sqlite3
 import pytest
 from yt_dlp_bot.repositories.download_repository import DownloadRepository
@@ -98,3 +99,65 @@ def test_get_all_scheduled_downloads(download_repo, db_conn):
     results = download_repo.get_all_scheduled_downloads()
     expected = [("url2", 1000), ("url1", 2000)] # Ordered by utcepoch ASC
     assert results == expected
+
+# New tests for downloaded_files table
+def test_add_and_get_downloaded_file(download_repo, db_conn):
+    url = "http://example.com/video.mp4"
+    filepath = "/path/to/video.mp4"
+    download_repo.add_downloaded_file(url, filepath)
+    
+    results = download_repo.get_downloaded_files()
+    assert len(results) == 1
+    file_id, db_url, db_filepath, download_time, is_public = results[0]
+    
+    assert db_url == url
+    assert db_filepath == filepath
+    assert isinstance(download_time, str) # TIMESTAMP is often returned as string
+    assert is_public is None # Default for INTEGER column if not specified
+
+def test_get_downloaded_files_empty(download_repo):
+    results = download_repo.get_downloaded_files()
+    assert results == []
+
+def test_get_downloaded_file_by_id(download_repo, db_conn):
+    url = "http://example.com/video2.mp4"
+    filepath = "/path/to/video2.mp4"
+    download_repo.add_downloaded_file(url, filepath)
+    
+    # Get the ID of the added file
+    cursor = db_conn.execute("SELECT id FROM downloaded_files WHERE url=?", (url,))
+    file_id = cursor.fetchone()[0]
+    
+    retrieved_filepath = download_repo.get_downloaded_file_by_id(file_id)
+    assert retrieved_filepath == (filepath,)
+    
+    # Test with a non-existent ID
+    non_existent_id = file_id + 100
+    retrieved_filepath_non_existent = download_repo.get_downloaded_file_by_id(non_existent_id)
+    assert retrieved_filepath_non_existent is None
+
+def test_delete_downloaded_file(download_repo, db_conn):
+    url = "http://example.com/video3.mp4"
+    filepath = "/path/to/video3.mp4"
+    download_repo.add_downloaded_file(url, filepath)
+    
+    # Get the ID of the added file
+    cursor = db_conn.execute("SELECT id FROM downloaded_files WHERE url=?", (url,))
+    file_id = cursor.fetchone()[0]
+    
+    # Verify it exists
+    results_before_delete = download_repo.get_downloaded_files()
+    assert len(results_before_delete) == 1
+    assert results_before_delete[0][0] == file_id
+
+    # Delete the file
+    download_repo.delete_downloaded_file(file_id)
+    
+    # Verify it's deleted
+    results_after_delete = download_repo.get_downloaded_files()
+    assert len(results_after_delete) == 0
+    
+    # Test deleting a non-existent ID (should not raise an error)
+    download_repo.delete_downloaded_file(file_id + 100)
+    results_after_non_existent_delete = download_repo.get_downloaded_files()
+    assert len(results_after_non_existent_delete) == 0
