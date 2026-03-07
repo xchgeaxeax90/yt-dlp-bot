@@ -1,11 +1,12 @@
 import logging
 import discord
 from discord.ext import commands, tasks
-from yt_dlp_bot.helpers import config
+from yt_dlp_bot.helpers import Config
+
 from yt_dlp_bot.database import RoomKind
 from yt_dlp_bot.repositories.download_repository import DownloadRepository
 from yt_dlp_bot.repositories.subscription_repository import SubscriptionRepository
-from yt_dlp_bot.pikl_api.waiting_room_client import AsyncHttpClient
+from yt_dlp_bot.pikl_api.http_client import AsyncHttpClient
 from yt_dlp_bot.services.download_service import DownloadService
 from yt_dlp_bot.services.scheduler_service import SchedulerService
 from yt_dlp_bot.services.subscription_service import SubscriptionService # New import
@@ -16,7 +17,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 class YtDl(commands.Cog):
-    def __init__(self, bot, http_client: AsyncHttpClient, download_repository: DownloadRepository, subscription_repository: SubscriptionRepository, download_service: DownloadService, scheduler_service: SchedulerService, subscription_service: SubscriptionService) -> None:
+    def __init__(self, bot, http_client: AsyncHttpClient, download_repository: DownloadRepository, subscription_repository: SubscriptionRepository, download_service: DownloadService, scheduler_service: SchedulerService, subscription_service: SubscriptionService, config: Config) -> None:
         self.bot = bot
         self.http_client : Optional[AsyncHttpClient] = http_client # Keep this for direct http_client calls in cog
         self.download_repository = download_repository
@@ -24,6 +25,7 @@ class YtDl(commands.Cog):
         self.download_service = download_service
         self.scheduler_service = scheduler_service
         self.subscription_service = subscription_service # New
+        self.config = config
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -80,10 +82,10 @@ class YtDl(commands.Cog):
         usage="",
     )
     async def df(self, ctx: commands.Context):
-        if not 'paths' in config.yt_dlp_config or not 'home' in config.yt_dlp_config['paths']:
+        if not 'paths' in self.config.yt_dlp_config or not 'home' in self.config.yt_dlp_config['paths']:
             space = shutil.disk_usage('.')
         else:
-            space = shutil.disk_usage(config.yt_dlp_config['paths']['home'])
+            space = shutil.disk_usage(self.config.yt_dlp_config['paths']['home'])
         MiB = 1024 * 1024
         GiB = 1024 * MiB
         TiB = 1024 * GiB

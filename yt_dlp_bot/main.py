@@ -55,7 +55,7 @@ async def main():
 
     await bot.add_cog(sync.Sync(bot))
     # Pass all required dependencies to YtDl cog
-    await bot.add_cog(ytdl.YtDl(bot, http_client_instance, download_repository, subscription_repository, download_service, scheduler_service, subscription_service))
+    await bot.add_cog(ytdl.YtDl(bot, http_client_instance, download_repository, subscription_repository, download_service, scheduler_service, subscription_service, helpers.config))
     async with bot:
         tasks = []
         tasks.append(bot.start(helpers.config.discord_key))
