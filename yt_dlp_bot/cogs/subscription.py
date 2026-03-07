@@ -20,8 +20,7 @@ class Subscription(commands.Cog):
         name="subscription",
         brief="Commands for managing channel subscriptions",
         description="Commands for managing channel subscriptions",
-        usage="",
-        fallback="subscribe"
+        usage=""
     )
     async def subscription_group(self, ctx: commands.Context):
         if ctx.invoked_subcommand is None:
