@@ -63,15 +63,3 @@ class SubscriptionService:
                 kind=RoomKind(room_kind_value)
             ))
         return subscriptions
-
-    def get_subscriptions(self, guild_id: int) -> list[SubscriptionModel]:
-        raw_subscriptions = self.subscription_repository.get_subscriptions(guild_id)
-        subscriptions = []
-        for guild_id, channel_id, youtube_channel, room_kind_value in raw_subscriptions:
-            subscriptions.append(SubscriptionModel(
-                guild_id=guild_id,
-                channel_id=channel_id,
-                youtube_channel=youtube_channel,
-                kind=RoomKind(room_kind_value)
-            ))
-        return subscriptions

@@ -77,3 +77,24 @@ def test_add_subscribed_waiting_room_when_not_subscribed(download_repo, db_conn)
     assert added is False
     cursor = db_conn.execute("SELECT url FROM future_downloads WHERE url=?", (room.url,))
     assert cursor.fetchone() is None
+
+def test_delete_future_download(download_repo, db_conn):
+    db_conn.execute("INSERT INTO future_downloads (url, utcepoch) VALUES (?, ?)", ("http://example.com/delete", 1000))
+    download_repo.delete_future_download("http://example.com/delete")
+    cursor = db_conn.execute("SELECT COUNT(*) FROM future_downloads WHERE url=?", ("http://example.com/delete",))
+    assert cursor.fetchone()[0] == 0
+
+def test_disable_future_download(download_repo, db_conn):
+    db_conn.execute("INSERT INTO future_downloads (url, utcepoch, valid) VALUES (?, ?, 1)", ("http://example.com/disable", 1000))
+    download_repo.disable_future_download("http://example.com/disable")
+    cursor = db_conn.execute("SELECT valid FROM future_downloads WHERE url=?", ("http://example.com/disable",))
+    assert cursor.fetchone()[0] == 0
+
+def test_get_all_scheduled_downloads(download_repo, db_conn):
+    db_conn.execute("INSERT INTO future_downloads (url, utcepoch, valid) VALUES (?, ?, 1)", ("url1", 2000))
+    db_conn.execute("INSERT INTO future_downloads (url, utcepoch, valid) VALUES (?, ?, 1)", ("url2", 1000))
+    db_conn.execute("INSERT INTO future_downloads (url, utcepoch, valid) VALUES (?, ?, 0)", ("url3", 3000)) # Invalid
+    
+    results = download_repo.get_all_scheduled_downloads()
+    expected = [("url2", 1000), ("url1", 2000)] # Ordered by utcepoch ASC
+    assert results == expected

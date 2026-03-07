@@ -74,3 +74,23 @@ async def test_receive_stream_notification_when_not_subscribed(subscription_serv
     mock_sub_repo.get_guild_info_for_subscription.assert_called_once()
     mock_down_repo.add_completion_for_url.assert_not_called()
     mock_down_service.initiate_download.assert_not_called()
+
+def test_get_subscriptions(subscription_service, mock_sub_repo):
+    # Mock data from subscription_repository.get_subscriptions
+    mock_sub_repo.get_subscriptions.return_value = [
+        (123, 456, "chan1", "streams"),
+        (123, 789, "chan2", "videos")
+    ]
+    
+    subscriptions = subscription_service.get_subscriptions(123)
+    
+    mock_sub_repo.get_subscriptions.assert_called_once_with(123)
+    assert len(subscriptions) == 2
+    assert subscriptions[0].guild_id == 123
+    assert subscriptions[0].channel_id == 456
+    assert subscriptions[0].youtube_channel == "chan1"
+    assert subscriptions[0].kind == RoomKind.STREAM
+    assert subscriptions[1].guild_id == 123
+    assert subscriptions[1].channel_id == 789
+    assert subscriptions[1].youtube_channel == "chan2"
+    assert subscriptions[1].kind == RoomKind.PREMIERE

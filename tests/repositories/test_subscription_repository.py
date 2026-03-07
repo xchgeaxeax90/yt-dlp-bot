@@ -54,3 +54,15 @@ def test_get_guild_info_for_subscription(sub_repo, db_conn):
     
     results = sub_repo.get_guild_info_for_subscription("chan1", RoomKind.STREAM)
     assert set(results) == {(123, 456), (789, 101)}
+
+def test_get_subscriptions(sub_repo, db_conn):
+    db_conn.execute("INSERT INTO subscribed_channels (youtube_channel, room_kind, guild_id, channel_id) VALUES (?, ?, ?, ?)",
+                    ("chan1", "streams", 123, 456))
+    db_conn.execute("INSERT INTO subscribed_channels (youtube_channel, room_kind, guild_id, channel_id) VALUES (?, ?, ?, ?)",
+                    ("chan2", "videos", 123, 789))
+    db_conn.execute("INSERT INTO subscribed_channels (youtube_channel, room_kind, guild_id, channel_id) VALUES (?, ?, ?, ?)",
+                    ("chan3", "streams", 456, 111))
+    
+    results = sub_repo.get_subscriptions(123)
+    expected = [(123, 456, "chan1", "streams"), (123, 789, "chan2", "videos")]
+    assert set(results) == set(expected)

@@ -28,7 +28,3 @@ class SubscriptionRepository:
     def get_subscriptions(self, guild_id: int):
         return self.con.execute("""SELECT guild_id, channel_id, youtube_channel, room_kind FROM subscribed_channels
             WHERE guild_id = ?""", (guild_id,)).fetchall()
-
-    def get_subscriptions(self, guild_id: int):
-        return self.con.execute("""SELECT guild_id, channel_id, youtube_channel, room_kind FROM subscribed_channels
-            WHERE guild_id = ?""", (guild_id,)).fetchall()
