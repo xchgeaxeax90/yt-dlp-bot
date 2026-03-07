@@ -62,7 +62,7 @@ async def test_receive_stream_notification_when_subscribed(subscription_service,
     
     mock_sub_repo.get_guild_info_for_subscription.assert_called_once_with("chan1", RoomKind.STREAM)
     mock_down_repo.add_completion_for_url.assert_called_once_with(10, 20, video.url)
-    mock_down_service.initiate_download.assert_called_once_with(video.url, notify=True, streamlink=True)
+    mock_down_service.initiate_download.assert_called_once_with(video.url, 10, 20, streamlink=True)
 
 @pytest.mark.asyncio
 async def test_receive_stream_notification_when_not_subscribed(subscription_service, mock_sub_repo, mock_down_repo, mock_down_service):

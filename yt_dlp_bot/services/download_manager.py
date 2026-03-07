@@ -4,14 +4,13 @@ import datetime
 import threading
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 import yt_dlp
 
 from yt_dlp_bot.repositories.download_repository import DownloadRepository
 from yt_dlp_bot.services.notification_service import NotificationService
 from yt_dlp_bot.helpers import config
-from yt_dlp_bot.downloader.downloader import Downloader
+from yt_dlp_bot.services.downloader import Downloader
 
 
 logger = logging.getLogger(__name__)
@@ -47,9 +46,16 @@ class DownloadManager:
         def _download_impl():
             with yt_dlp.YoutubeDL(config.yt_dlp_config | extra_args | hook_args) as ydl:
                 logger.info(f'Initiating download of {url}')
-                ydl.download(url)
-                logger.info(f'Finished download of {url}')
-        await asyncio.to_thread(_download_impl)
+                info = ydl.extract_info(url, download=True)
+                if not info:
+                    logger.error(f'Failed to extract info for {url}')
+                    return None
+                filename = ydl.prepare_filename(info)
+                logger.info(f'Finished download of {url} -> {filename}')
+                return filename
+        filename = await asyncio.to_thread(_download_impl)
+        if filename:
+            self.download_repository.add_downloaded_file(url, filename)
         await self._notify_for_download(url, f'Finished download for {url}')
         self.download_repository.delete_completion_for_url(url)
 
@@ -87,6 +93,7 @@ class DownloadManager:
         if proc.returncode == 0:
             logger.info(f'ffmpeg success, removing {streamlink_output}')
             os.remove(streamlink_output)
+            self.download_repository.add_downloaded_file(url, ffmpeg_output)
             
         await self._notify_for_download(url, f'Finished download for {url}')
         self.download_repository.delete_completion_for_url(url)
@@ -99,12 +106,11 @@ class DownloadManager:
             task = asyncio.create_task(self._download(url, notify, extra_args, event))
         return DownloadTask(task, event)
 
-    async def start_download(self, url: str, guild_id=None, channel_id=None, notify=False, streamlink=False):
+    async def start_download(self, url: str, guild_id=None, channel_id=None, notify=False, streamlink=False, extra_args: dict = None):
         if guild_id and channel_id:
             self.download_repository.add_completion_for_url(guild_id, channel_id, url)
-        task = self.create_download_task(url, notify, {}, streamlink)
+        task = self.create_download_task(url, notify, extra_args or {}, streamlink)
         self.current_downloads[url] = task
-        # await asyncio.wait([v.task for v in self.current_downloads.values()], timeout=1) # This wait should be handled by SchedulerService
 
     def get_running_downloads(self):
         return self.current_downloads.keys()
@@ -113,7 +119,5 @@ class DownloadManager:
         if url in self.current_downloads:
             logger.info(f'Setting event {self.current_downloads[url].event}')
             self.current_downloads[url].event.set()
-            # Optionally, remove from current_downloads immediately or wait for task to finish
-            # For now, let's keep it in current_downloads until the task is actually done.
             return True
         return False

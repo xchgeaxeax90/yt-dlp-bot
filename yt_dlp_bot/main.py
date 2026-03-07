@@ -6,7 +6,7 @@ from discord.ext import commands
 
 from yt_dlp_bot import helpers
 from yt_dlp_bot.database import init_database
-from yt_dlp_bot.downloader.downloader import Downloader
+from yt_dlp_bot.services.downloader import Downloader
 from yt_dlp_bot.bot import YtDlpBot
 from yt_dlp_bot.cogs import (sync, ytdl, subscription)
 from yt_dlp_bot.repositories.download_repository import DownloadRepository

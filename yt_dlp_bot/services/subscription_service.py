@@ -46,11 +46,16 @@ class SubscriptionService:
     async def receive_stream_notification(self, video: YoutubeVideo):
         # Logic from Downloader.receive_stream_notification
         guild_info = self.subscription_repository.get_guild_info_for_subscription(video.channel_id, RoomKind.STREAM)
-        for (guild_id, channel_id) in guild_info:
-            logger.info(f"Adding completion for {video.url}")
-            self.download_repository.add_completion_for_url(guild_id, channel_id, video.url)
         if guild_info:
-            await self.download_service.initiate_download(video.url, notify=True, streamlink=True)
+            # We take the first guild/channel as a "primary" for the initiate_download call
+            # But we record completion for all of them
+            for (guild_id, channel_id) in guild_info:
+                logger.info(f"Adding completion for {video.url}")
+                self.download_repository.add_completion_for_url(guild_id, channel_id, video.url)
+            
+            # Use the first one to start the download through service
+            first_guild, first_channel = guild_info[0]
+            await self.download_service.initiate_download(video.url, first_guild, first_channel, streamlink=True)
 
     def get_subscriptions(self, guild_id: int) -> list[SubscriptionModel]:
         raw_subscriptions = self.subscription_repository.get_subscriptions(guild_id)

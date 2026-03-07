@@ -5,7 +5,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from yt_dlp_bot.services.download_manager import DownloadManager
-from yt_dlp_bot.downloader.downloader import Downloader, AvailabilityError, AvailableFuture, AvailableNow
+from yt_dlp_bot.services.downloader import Downloader, AvailabilityError, AvailableFuture, AvailableNow
 from yt_dlp_bot.repositories.download_repository import DownloadRepository
 
 logger = logging.getLogger(__name__)
@@ -41,9 +41,9 @@ class DownloadService:
             return None
         return datetime.now().astimezone(timezone.utc) + timedelta_obj
 
-    async def initiate_download(self, url: str, guild_id: int, channel_id: int, streamlink: bool = False):
+    async def initiate_download(self, url: str, guild_id: int, channel_id: int, streamlink: bool = False, notify: bool = True):
         if streamlink:
-            await self.download_manager.start_download(url, guild_id, channel_id, streamlink=True)
+            await self.download_manager.start_download(url, guild_id, channel_id, streamlink=True, notify=notify)
             return "Starting streamlink download"
 
         availability = await self.downloader.get_availability(url)
@@ -51,7 +51,7 @@ class DownloadService:
             case AvailabilityError(errstr):
                 return f"Error: {errstr}"
             case AvailableNow():
-                await self.download_manager.start_download(url, guild_id, channel_id)
+                await self.download_manager.start_download(url, guild_id, channel_id, notify=notify)
                 return "Downloading video now"
             case AvailableFuture(time):
                 self.downloader.defer_download_until_time(url, time, guild_id, channel_id)
@@ -70,7 +70,7 @@ class DownloadService:
         if self.download_manager.cancel_download(url):
             return f"Successfully cancelled running download of <{url}>"
         # If not a running download, try to cancel a scheduled download
-        if self.downloader.cancel_download(url):
+        if self.downloader.cancel_scheduled_download(url):
             return f"Successfully cancelled scheduled download of <{url}>"
         return f"Could not find <{url}> in running or future downloads"
     

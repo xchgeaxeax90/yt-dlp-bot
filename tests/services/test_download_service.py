@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 from datetime import datetime, timedelta, timezone
 from yt_dlp_bot.services.download_service import DownloadService
-from yt_dlp_bot.downloader.downloader import AvailableNow, AvailableFuture, AvailabilityError
+from yt_dlp_bot.services.downloader import AvailableNow, AvailableFuture, AvailabilityError
 
 @pytest.fixture
 def mock_downloader():
@@ -43,14 +43,14 @@ def test_parse_text_as_datetime_duration(download_service):
 async def test_initiate_download_streamlink(download_service, mock_manager):
     result = await download_service.initiate_download("http://url", 1, 1, streamlink=True)
     assert result == "Starting streamlink download"
-    mock_manager.start_download.assert_called_once_with("http://url", 1, 1, streamlink=True)
+    mock_manager.start_download.assert_called_once_with("http://url", 1, 1, streamlink=True, notify=True)
 
 @pytest.mark.asyncio
 async def test_initiate_download_now(download_service, mock_downloader, mock_manager):
     mock_downloader.get_availability.return_value = AvailableNow()
     result = await download_service.initiate_download("http://url", 1, 1)
     assert result == "Downloading video now"
-    mock_manager.start_download.assert_called_once_with("http://url", 1, 1)
+    mock_manager.start_download.assert_called_once_with("http://url", 1, 1, notify=True)
 
 @pytest.mark.asyncio
 async def test_initiate_download_future(download_service, mock_downloader):
@@ -79,12 +79,12 @@ def test_cancel_download_running(download_service, mock_manager):
 
 def test_cancel_download_scheduled(download_service, mock_manager, mock_downloader):
     mock_manager.cancel_download.return_value = False
-    mock_downloader.cancel_download.return_value = True
+    mock_downloader.cancel_scheduled_download.return_value = True
     result = download_service.cancel_download("http://url")
     assert "Successfully cancelled scheduled download" in result
 
 def test_cancel_download_not_found(download_service, mock_manager, mock_downloader):
     mock_manager.cancel_download.return_value = False
-    mock_downloader.cancel_download.return_value = False
+    mock_downloader.cancel_scheduled_download.return_value = False
     result = download_service.cancel_download("http://url")
     assert "Could not find" in result
