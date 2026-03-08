@@ -27,7 +27,9 @@ class DownloadedFileListView(PaginatedView):
         lines = []
         for file_id, url, filepath, download_time, is_public, last_check in page_items:
             filename = os.path.basename(filepath)
-            truncated_name = (filename[:37] + "...") if len(filename) > 40 else filename
+            # Escape square brackets for markdown link [text](url)
+            escaped_name = filename.replace("[", "\\[").replace("]", "\\]")
+            truncated_name = (escaped_name[:37] + "...") if len(escaped_name) > 40 else escaped_name
             
             size_str = "N/A"
             if os.path.exists(filepath):

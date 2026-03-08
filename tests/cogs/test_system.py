@@ -54,7 +54,7 @@ async def test_list_files_empty(system_cog, mock_ctx, mock_download_repository):
 @pytest.mark.asyncio
 async def test_list_files_not_empty(system_cog, mock_ctx, mock_download_repository):
     mock_download_repository.get_downloaded_files.return_value = [
-        (1, "http://url1", "/path/to/very_long_filename_that_should_be_truncated_at_some_point.mp4", "2025-01-01 12:00:00", 0, None) # is_public=0 (Private)
+        (1, "http://url1", "/path/to/[3D] very_long_filename_that_should_be_truncated_at_some_point.mp4", "2025-01-01 12:00:00", 0, None) # is_public=0 (Private)
     ]
     with patch("os.path.exists", return_value=True), \
          patch("os.path.getsize", return_value=1024 * 1024 * 5): # 5 MiB
@@ -68,8 +68,8 @@ async def test_list_files_not_empty(system_cog, mock_ctx, mock_download_reposito
         assert "view" in kwargs
         embed = kwargs["embed"]
         assert "Tracked Downloaded Files" in embed.title
-        # Check for markdown link [filename](url)
-        assert "[very_long_filename_that_should_be_tru...](http://url1)" in embed.description
+        # Check for escaped markdown link \[filename\](url)
+        assert r"[\[3D\] very_long_filename_that_should...](http://url1)" in embed.description
         assert " [Private]" in embed.description
         assert "5.0 MiB" in embed.description
 
