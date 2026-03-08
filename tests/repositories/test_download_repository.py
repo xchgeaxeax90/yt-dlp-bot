@@ -108,12 +108,13 @@ def test_add_and_get_downloaded_file(download_repo, db_conn):
     
     results = download_repo.get_downloaded_files()
     assert len(results) == 1
-    file_id, db_url, db_filepath, download_time, is_public = results[0]
+    file_id, db_url, db_filepath, download_time, is_public, last_check = results[0]
     
     assert db_url == url
     assert db_filepath == filepath
     assert isinstance(download_time, str) # TIMESTAMP is often returned as string
     assert is_public is None # Default for INTEGER column if not specified
+    assert last_check is None
 
 def test_get_downloaded_files_empty(download_repo):
     results = download_repo.get_downloaded_files()

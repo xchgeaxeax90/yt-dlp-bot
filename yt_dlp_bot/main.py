@@ -60,7 +60,7 @@ async def main():
     # Add the new Subscription cog
     await bot.add_cog(subscription.Subscription(bot, http_client_instance, subscription_service, helpers.config))
     # Add the new System cog
-    await bot.add_cog(system.System(bot, download_repository, helpers.config))
+    await bot.add_cog(system.System(bot, download_repository, downloader, download_service, helpers.config))
     async with bot:
         tasks = []
         tasks.append(bot.start(helpers.config.discord_key))

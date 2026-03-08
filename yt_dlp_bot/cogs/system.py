@@ -6,6 +6,9 @@ import os
 from yt_dlp_bot.repositories.download_repository import DownloadRepository
 from yt_dlp_bot.helpers import Config
 from yt_dlp_bot.views import PaginatedView
+from yt_dlp_bot.services.downloader import Downloader
+from yt_dlp_bot.services.download_service import DownloadService, parse_text_duration_timedelta
+import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +25,7 @@ class DownloadedFileListView(PaginatedView):
         )
 
         lines = []
-        for file_id, url, filepath, download_time, is_public in page_items:
+        for file_id, url, filepath, download_time, is_public, last_check in page_items:
             filename = os.path.basename(filepath)
             truncated_name = (filename[:37] + "...") if len(filename) > 40 else filename
             
@@ -30,16 +33,19 @@ class DownloadedFileListView(PaginatedView):
             if os.path.exists(filepath):
                 size_str = self.format_size(os.path.getsize(filepath))
             
-            lines.append(f"**ID: {file_id}** | `{truncated_name}` | {size_str}")
+            private_str = " [Private]" if is_public == 0 else ""
+            lines.append(f"**ID: {file_id}** | [{truncated_name}]({url}){private_str} | {size_str}")
 
         embed.description = "\n".join(lines) if lines else "No files on this page."
         embed.set_footer(text=f"Total files: {len(self.items)}")
         return embed
 
 class System(commands.Cog):
-    def __init__(self, bot, download_repository: DownloadRepository, config: Config) -> None:
+    def __init__(self, bot, download_repository: DownloadRepository, downloader: Downloader, download_service: DownloadService, config: Config) -> None:
         self.bot = bot
         self.download_repository = download_repository
+        self.downloader = downloader
+        self.download_service = download_service
         self.config = config
 
     @commands.is_owner()
@@ -103,3 +109,78 @@ class System(commands.Cog):
         except Exception as e:
             logger.error(f"Error deleting file {filepath}: {e}")
             await ctx.send(f"Error deleting file: {e}")
+
+    @commands.is_owner()
+    @system.command(name="purge", brief="Purges database records for missing files")
+    async def purge_files(self, ctx: commands.Context):
+        files = self.download_repository.get_downloaded_files()
+        purged_count = 0
+        for file_id, url, filepath, download_time, is_public, last_check in files:
+            if not os.path.exists(filepath):
+                self.download_repository.delete_downloaded_file(file_id)
+                purged_count += 1
+        
+        await ctx.send(f"Purged {purged_count} records from the database for missing files.")
+
+    @commands.is_owner()
+    @system.command(name="scan", brief="Scans tracked files for availability")
+    async def scan_files(self, ctx: commands.Context, include_public: bool = False, older_than: str = None):
+        """
+        Scans tracked downloaded files to check if the source video is still public.
+        
+        :param include_public: If True, also scans files already marked as public (is_public=1).
+        :param older_than: Optional duration string (e.g., '1w', '2d'). Only scans files checked longer ago than this.
+        """
+        await ctx.defer()
+        files = self.download_repository.get_downloaded_files()
+        
+        now = datetime.datetime.now(datetime.timezone.utc)
+        threshold = None
+        if older_than:
+            delta = parse_text_duration_timedelta(older_than)
+            if delta:
+                threshold = now - delta
+            else:
+                await ctx.send("Invalid duration format. Use e.g., '1w', '2d', '12h'.")
+                return
+
+        to_scan = []
+        for file_id, url, filepath, download_time, is_public, last_check in files:
+            # Filter by is_public status
+            if is_public == 1 and not include_public:
+                continue
+            
+            # Filter by last_check duration
+            if last_check and threshold:
+                # sqlite might return timestamp as string
+                try:
+                    last_check_dt = datetime.datetime.fromisoformat(last_check).replace(tzinfo=datetime.timezone.utc)
+                    if last_check_dt > threshold:
+                        continue
+                except (ValueError, TypeError):
+                    pass # If we can't parse it, we scan it
+            
+            to_scan.append((file_id, url))
+
+        if not to_scan:
+            await ctx.send("No files match the scan criteria.")
+            return
+
+        await ctx.send(f"Starting availability scan for {len(to_scan)} files...")
+        
+        scanned_count = 0
+        public_count = 0
+        private_count = 0
+        
+        for file_id, url in to_scan:
+            is_available = await self.downloader.check_video_availability(url)
+            status_int = 1 if is_available else 0
+            self.download_repository.update_downloaded_file_status(file_id, status_int, now.isoformat())
+            
+            scanned_count += 1
+            if is_available:
+                public_count += 1
+            else:
+                private_count += 1
+                
+        await ctx.send(f"Scan complete. Scanned: {scanned_count}, Still Public: {public_count}, Now Private/Unavailable: {private_count}")

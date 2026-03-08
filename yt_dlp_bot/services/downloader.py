@@ -64,6 +64,20 @@ class Downloader:
         except Exception as e:
             return AvailabilityError(str(e))
 
+    async def check_video_availability(self, url: str) -> bool:
+        """Returns True if the video is public and accessible, False otherwise."""
+        try:
+            def _check_impl():
+                # Setting extract_flat=True might be faster but might not accurately report availability 
+                # if the video is private or deleted. extract_info with download=False is more reliable.
+                with yt_dlp.YoutubeDL({'quiet': True, 'no_warnings': True, 'simulate': True}) as ydl:
+                    ydl.extract_info(url, download=False)
+                    return True
+            return await asyncio.to_thread(_check_impl)
+        except Exception as e:
+            logger.info(f"Availability check failed for {url}: {e}")
+            return False
+
     def defer_download_until_time(self, url: str, time: datetime, guild_id=None, channel_id=None):
         utctimestamp = time.timestamp()
         logger.info(f'Deferring download of {url} until {utctimestamp}')

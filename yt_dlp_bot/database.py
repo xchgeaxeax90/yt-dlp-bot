@@ -49,6 +49,7 @@ def _setup_tables(con: sqlite3.Connection):
             url TEXT,
             filepath TEXT,
             download_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_public INTEGER
+            is_public INTEGER,
+            last_check TIMESTAMP
         );""")
 

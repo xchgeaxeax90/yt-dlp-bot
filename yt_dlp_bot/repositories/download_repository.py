@@ -49,7 +49,7 @@ class DownloadRepository:
             VALUES (?, ?)""", (url, filepath))
 
     def get_downloaded_files(self):
-        results = self.con.execute("""SELECT id, url, filepath, download_time, is_public FROM downloaded_files ORDER BY download_time DESC;""").fetchall()
+        results = self.con.execute("""SELECT id, url, filepath, download_time, is_public, last_check FROM downloaded_files ORDER BY download_time DESC;""").fetchall()
         return results
 
     def get_downloaded_file_by_id(self, file_id: int):
@@ -60,6 +60,12 @@ class DownloadRepository:
         with self.con:
             self.con.execute("""DELETE FROM downloaded_files
             WHERE id = ?;""", (file_id, ))
+
+    def update_downloaded_file_status(self, file_id: int, is_public: int, last_check: str):
+        with self.con:
+            self.con.execute("""UPDATE downloaded_files 
+                                SET is_public = ?, last_check = ? 
+                                WHERE id = ?""", (is_public, last_check, file_id))
 
 
     def disable_future_download(self, url: str):
