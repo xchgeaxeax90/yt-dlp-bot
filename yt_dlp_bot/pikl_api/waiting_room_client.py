@@ -3,14 +3,14 @@ import asyncio
 import json
 import logging
 from yt_dlp_bot.database import RoomKind, YoutubeWaitingRoom, YoutubeVideo
-from yt_dlp_bot.downloader.downloader import Downloader
+from yt_dlp_bot.services.subscription_service import SubscriptionService
 
 logger = logging.getLogger(__name__)
 
 class AsyncSSEClient:
-    def __init__(self, url:str, downloader: Downloader, retry_delay: float=30.0):
+    def __init__(self, url:str, subscription_service: SubscriptionService, retry_delay: float=30.0):
         self.url = url + "/live?new_only=true"
-        self.downloader = downloader
+        self.subscription_service = subscription_service
         self.retry_delay = retry_delay
         self.last_event_id = None
 
@@ -54,9 +54,12 @@ class AsyncSSEClient:
     async def handle_event(self, data):
         video = YoutubeVideo(**data)
         logger.info(f"Received {video}")
-        await self.downloader.receive_stream_notification(video)
+        await self.subscription_service.receive_stream_notification(video)
         
 
-async def run_api_client(url: str, downloader: Downloader):
-    client = AsyncSSEClient(url, downloader)
+async def run_api_client(url: str, subscription_service: SubscriptionService):
+    client = AsyncSSEClient(url, subscription_service)
     await client.listen()
+
+
+    

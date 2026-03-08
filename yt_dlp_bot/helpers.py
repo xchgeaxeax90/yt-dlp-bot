@@ -9,22 +9,35 @@ def CLI():
     parser.add_argument('--log-level', default='INFO', help='Sets the log level')
     parser.add_argument('--config-file', default='bot.json', help='Bot config file location')
 
-    return parser.parse_args()
+    args, _ = parser.parse_known_args()
+    return args
 
 cli_args = CLI()
 
+class StreamlinkConfig(BaseModel):
+    resolution: str = "best"
+    executable: str = "streamlink"
+    extra_args: list = []
+    
+
 class Config(BaseModel):
-    discord_key: str
-    database_file: str
+    discord_key: str = ""
+    database_file: str = ":memory:"
     polling_interval_s: int = 60
     yt_dlp_config: dict = {}
     pikl_url: str | None = None
+    streamlink_config : StreamlinkConfig = StreamlinkConfig()
+    use_streamlink_for_subscriptions: bool = False
 
 def get_config():
-    with open(cli_args.config_file, 'r') as f:
-        config_data = json.load(f)
-        config_data['logger'] = logging.getLogger('yt-dlp')
-        return Config(**config_data)
+    try:
+        with open(cli_args.config_file, 'r') as f:
+            config_data = json.load(f)
+            config_data['logger'] = logging.getLogger('yt-dlp')
+            return Config(**config_data)
+    except (FileNotFoundError, json.JSONDecodeError):
+        # Provide a default config for testing if file not found
+        return Config()
 
 config = get_config()
 

@@ -7,3 +7,7 @@ bot_env.sh
 cookie.json
 bot.json
 runtime/
+*.txt
+dist/
+*.sh
+htmlcov/
