@@ -639,6 +639,22 @@ files = [
 toml = ["tomli ; python_full_version <= \"3.11.0a6\""]
 
 [[package]]
+name = "deno"
+version = "2.7.4"
+description = "Python redistribution of Deno binaries"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "deno-2.7.4-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:8e53b7118f9cd61af22da63468d21e94507a4be74dd4ce523cffcaea047509b6"},
+    {file = "deno-2.7.4-py3-none-macosx_11_0_arm64.whl", hash = "sha256:e46b936f433f6130012acd3960bd9519148bf4dd8b5c1b0e0e278ea558ec1859"},
+    {file = "deno-2.7.4-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:4489e8db4d002724b40b32c5be988e6628de882abcd4aae612fc2267349f9e40"},
+    {file = "deno-2.7.4-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:2fa937d81e96b89d82ab62ed1b448eb842e35ee8baa0f4aeca0857e431235cf0"},
+    {file = "deno-2.7.4-py3-none-win_amd64.whl", hash = "sha256:d7fc9a55d8ef919b17752386791bda20ac6bd58f874223541b8f6a877f5f83e9"},
+    {file = "deno-2.7.4.tar.gz", hash = "sha256:262e0a6bee1a4a218a52baf433b96783ae3751440be3d3af195a1bf46ac39fe8"},
+]
+
+[[package]]
 name = "discord-py"
 version = "2.7.1"
 description = "A Python wrapper for the Discord API"
@@ -2115,4 +2131,4 @@ test = ["pytest (>=8.1,<9.0)", "pytest-rerunfailures (>=14.0,<15.0)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "58bcae04ba17a7fbc686e1c92e4c02f331fc35c581b4ba55c53cb9906f320107"
+content-hash = "680569b4eb9823530417f633c626b0533043f6f35a7356726d9fdc4ec5c4c24a"
