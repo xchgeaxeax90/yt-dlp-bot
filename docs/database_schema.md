@@ -43,3 +43,16 @@ This table tracks Discord guilds and channels that are subscribed to specific Yo
 
 **Constraints:**
 *   `UNIQUE(guild_id, youtube_channel, room_kind)`: Ensures that a specific Discord guild cannot subscribe to the same kind of content from a particular YouTube channel multiple times.
+
+### `downloaded_files`
+
+This table tracks successfully completed downloads.
+
+| Column          | Type      | Description                                       |
+| :-------------- | :-------- | :------------------------------------------------ |
+| `id`            | `integer` | Primary key (autoincrement).                       |
+| `url`           | `text`    | The source URL of the video.                      |
+| `filepath`      | `text`    | The path to the downloaded file on disk.          |
+| `download_time` | `timestamp`| The time when the download was completed.         |
+| `is_public`     | `integer` | 1 if the video is public, 0 if private/deleted, NULL if unknown. |
+| `last_check`    | `timestamp`| The last time the availability of the URL was checked. |

@@ -9,15 +9,12 @@ The `yt-dlp-bot` is a Discord bot designed to facilitate media downloads, primar
 ## Top-Level Directory Structure
 
 *   `.gitignore`: Specifies intentionally untracked files to ignore.
-*   `AGENTS.md`: Documentation for agents (likely related to development or testing).
+*   `AGENTS.md`: Documentation for agents.
 *   `bot.json.default`: Default bot configuration.
 *   `Dockerfile`: Defines the Docker image for the application.
 *   `poetry.lock`, `pyproject.toml`: Poetry dependency management files for Python.
-*   `.env/`: Directory for environment variables.
-*   `.git/`: Git version control directory.
 *   `agent/`: Contains agent-related files, such as `refactoring_plan.md`.
-*   `dist/`: Distribution or build artifacts.
-*   `runtime/`: Runtime-specific files or configurations.
+*   `docs/`: Project documentation.
 *   `tests/`: Contains unit and integration tests for the project.
 *   `yt_dlp_bot/`: The core application source code.
 
@@ -28,84 +25,60 @@ This directory contains the main logic and components of the Discord bot.
 *   `bot.py`:
     *   Defines the `YtDlpBot` class, which extends `discord.ext.commands.Bot`.
     *   Sets the default command prefix for the bot to `y?`.
-    *   This is the fundamental class that represents the Discord bot instance.
 
 *   `main.py`:
     *   The primary entry point for the application.
     *   Responsible for setting up logging, Discord intents, and initializing the `YtDlpBot` instance.
-    *   Establishes the database connection and initializes various repositories (`DownloadRepository`, `SubscriptionRepository`) and services (`DiscordNotificationService`).
-    *   Initializes the `Downloader` with its dependencies.
-    *   Conditionally sets up an `AsyncHttpClient` for the `pikl_api` if the `pikl_url` is configured.
-    *   Adds Discord Cogs (`sync`, `ytdl`) to the bot.
-    *   Starts the bot and gathers asynchronous tasks, including the `pikl_api` client if active.
+    *   Establishes the database connection and initializes various repositories and services.
+    *   Adds Discord Cogs (`sync`, `ytdl`, `subscription`, `system`) to the bot.
 
 *   `database.py`:
     *   Handles the initialization and schema creation for the SQLite database.
-    *   Likely defines data models or utility functions for database interactions.
 
 *   `helpers.py`:
     *   Contains helper functions and utilities used across the application.
-    *   Manages configuration settings (e.g., `cli_args`, `config`).
+    *   Manages configuration settings using Pydantic models.
+
+*   `views.py`:
+    *   Contains generic Discord UI components, such as `PaginatedView`, which provides base logic for button-based pagination in embeds.
 
 *   `cogs/`:
-    *   This directory holds Discord "cogs" – modular extensions that encapsulate commands, listeners, and other Discord.py features.
-    *   `sync.py`: A cog likely responsible for synchronizing Discord commands or other bot state.
+    *   This directory holds Discord "cogs" – modular extensions that encapsulate commands.
+    *   `sync.py`: Responsible for synchronizing Discord commands.
     *   `ytdl.py`: The main cog for YouTube-DL functionality.
-        *   Contains Discord commands for users to interact with the download system (e.g., `download`, `scheduled-download`, `streamlink-download`, `df` for disk usage, `get-running-downloads`, `get-scheduled-downloads`, `cancel`).
-        *   Manages parsing of time durations and Discord timestamps.
-        *   Includes a background task (`check_tasks`) that periodically calls `Downloader.schedule_deferred_downloads` and `download_repository.cleanup_future_downloads`.
-    *   `subscription.py`: A cog responsible for managing YouTube channel subscriptions.
-        *   Contains Discord commands for users to subscribe and unsubscribe from channels.
-
-*   `downloader/`:
-    *   Contains the core logic for handling media downloads.
-    *   `downloader.py`:
-        *   The `Downloader` class orchestrates `yt-dlp` and `streamlink` operations.
-        *   **Availability Handling**: Determines if a video is `AvailableNow`, `AvailableFuture` (with an epoch timestamp), or an `AvailabilityError`.
-        *   **Asynchronous Downloads**: Manages initiating and tracking multiple concurrent downloads using `asyncio.Task` and `threading.Event` for cancellation.
-        *   **`_download`**: Internal method for executing `yt-dlp` downloads, including progress hooks and notification.
-        *   **`_download_streamlink`**: Internal method for downloading via `streamlink`, including `ffmpeg` post-processing for muxing.
-        *   **`download_async`**: Public method to start an immediate download.
-        *   **`defer_download_until_time`**: Schedules a download to occur at a specified future time.
-        *   **`schedule_deferred_downloads`**: A critical method called periodically to check for and initiate pending scheduled downloads. It manages the lifecycle of these tasks.
-        *   **`cancel_download`**: Allows cancellation of both actively running and future scheduled downloads.
-        *   **`receive_waiting_room`, `receive_stream_notification`**: Callbacks for handling external events from the `pikl_api`, such as a YouTube waiting room being detected or a stream going live.
+        *   Contains commands like `download`, `scheduled-download`, `streamlink-download`, `get-running-downloads`, `get-scheduled-downloads`, and `cancel`.
+    *   `subscription.py`: Manages YouTube channel subscriptions.
+    *   `system.py`: Provides system management commands.
+        *   `system df`: Checks disk usage of the download directory.
+        *   `system list`: Lists tracked downloaded files with pagination.
+        *   `system delete <id>`: Deletes a tracked file from disk and database.
+        *   `system purge`: Removes database records for files that no longer exist on disk.
+        *   `system scan`: Checks availability of tracked URLs using `yt-dlp`.
 
 *   `pikl_api/`:
-    *   Handles integration with an external "Pikl API", likely a custom service for managing waiting rooms or notifications for YouTube channels.
-    *   `waiting_room_client.py`: Provides client functionality to interact with the `pikl_api`, including subscribing/unsubscribing to channels and managing waiting room events.
+    *   Handles integration with an external "Pikl API" for managing waiting rooms and stream notifications.
 
 *   `repositories/`:
-    *   This layer abstracts database access, providing methods for interacting with specific data entities.
-    *   `download_repository.py`:
-        *   Manages database operations related to downloads.
-        *   Stores and retrieves information about `completion_channels` (where download notifications should be sent).
-        *   Handles `future_downloads`, including adding, getting, deleting, and marking them as invalid.
-        *   Manages `subscribed_waiting_room` entries.
-    *   `subscription_repository.py`:
-        *   Manages database operations related to channel subscriptions.
-        *   Stores which Discord guilds and channels are subscribed to specific YouTube channels for different `RoomKind` (e.g., streams, videos).
+    *   `download_repository.py`: Manages database operations related to downloads, including tracking `downloaded_files` and `future_downloads`.
+    *   `subscription_repository.py`: Manages database operations related to channel subscriptions.
 
 *   `services/`:
-    *   This layer contains business logic and orchestrates operations, often using repositories.
-    *   `download_manager.py`: Manages the lifecycle of active and scheduled downloads, interacting with `yt-dlp` and `streamlink`.
-    *   `download_service.py`: Provides an interface for initiating, scheduling, cancelling, and querying download statuses.
-    *   `notification_service.py`:
-        *   `DiscordNotificationService`: Handles sending notifications back to Discord channels, typically after a download starts or completes.
-    *   `scheduler_service.py`: Manages the scheduling and execution of recurring tasks, such as checking for deferred downloads.
-    *   `subscription_service.py`: Manages user subscriptions to YouTube channels for automatic downloads, interacting with the subscription repository.
+    *   `downloader.py`:
+        *   Handles metadata extraction and availability checks using `yt-dlp`.
+        *   Determines if a video is `AvailableNow`, `AvailableFuture`, or an `AvailabilityError`.
+    *   `download_manager.py`:
+        *   Manages the execution of active downloads using `yt-dlp` and `streamlink`.
+        *   Tracks running tasks and handles cancellation via `threading.Event`.
+        *   Records successful downloads into the `downloaded_files` table.
+    *   `download_service.py`: Provides a high-level interface for initiating and scheduling downloads.
+    *   `notification_service.py`: Handles sending notifications back to Discord.
+    *   `scheduler_service.py`: Manages periodic tasks like checking for deferred downloads.
+    *   `subscription_service.py`: Manages user subscriptions and handles incoming stream notifications.
 
 ## Configuration
 
-The bot uses a `config` object (likely loaded from environment variables or a configuration file) to manage settings such as:
-*   `log_level`
-*   `database_file`
-*   `discord_key`
-*   `pikl_url` (for optional `pikl_api` integration)
-*   `yt_dlp_config` (parameters for `yt-dlp`)
-*   `streamlink_config` (parameters for `streamlink`)
-*   `polling_interval_s` (for background tasks)
+The bot uses a `Config` model defined in `helpers.py`, supporting settings like `discord_key`, `database_file`, `yt_dlp_config`, `streamlink_config`, and `use_streamlink_for_subscriptions`.
 
 ## Running the Bot
 
-The bot is started by executing `main.py`. It runs as an asynchronous application, processing Discord commands and managing background download tasks. If the `pikl_api` is configured, it also runs an asynchronous client to interact with that service.
+The bot is started by executing `main.py`. It requires Python >= 3.11 and the Deno JS runtime for `yt-dlp`.
