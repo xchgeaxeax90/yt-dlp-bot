@@ -10,7 +10,9 @@ RUN poetry build
 
 FROM python:3.13-slim
 
-RUN apt update && apt install -y ffmpeg && \
+COPY debian.sources /etc/apt/sources.list.d/debian.sources
+RUN apt update && \
+  apt install -y --allow-downgrades ffmpeg libsoxr0 libgomp1 gcc-14-base=14.2.0-16 libgcc-s1=14.2.0-16 libstdc++6=14.2.0-16 && \
   apt clean all && rm -rf /var/lib/apt/lists*
 
 RUN adduser --uid 1000 --gecos '' --gid 0 --disabled-password dl-bot && \

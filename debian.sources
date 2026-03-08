@@ -1,0 +1,17 @@
+Types: deb
+# http://snapshot.debian.org/archive/debian/20250908T000000Z
+#URIs: http://deb.debian.org/debian
+URIs: http://snapshot.debian.org/archive/debian/20250221T150818Z
+Suites: trixie trixie-updates
+Components: main contrib non-free
+Check-Valid-Until: false
+Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp
+
+Types: deb
+# http://snapshot.debian.org/archive/debian-security/20250908T000000Z
+#URIs: http://deb.debian.org/debian-security
+URIs: http://snapshot.debian.org/archive/debian-security/20250221T150818Z
+Suites: trixie-security
+Components: main contrib non-free
+Check-Valid-Until: false
+Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp
