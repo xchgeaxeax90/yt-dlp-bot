@@ -5,8 +5,36 @@ import shutil
 import os
 from yt_dlp_bot.repositories.download_repository import DownloadRepository
 from yt_dlp_bot.helpers import Config
+from yt_dlp_bot.views import PaginatedView
 
 logger = logging.getLogger(__name__)
+
+class DownloadedFileListView(PaginatedView):
+    def __init__(self, items: list, format_size_func, items_per_page: int = 10):
+        super().__init__(items, items_per_page)
+        self.format_size = format_size_func
+
+    async def create_embed(self, page_items: list) -> discord.Embed:
+        embed = discord.Embed(
+            title=f"Tracked Downloaded Files (Page {self.current_page + 1}/{self.total_pages})",
+            color=discord.Color.blue(),
+            timestamp=discord.utils.utcnow()
+        )
+
+        lines = []
+        for file_id, url, filepath, download_time, is_public in page_items:
+            filename = os.path.basename(filepath)
+            truncated_name = (filename[:37] + "...") if len(filename) > 40 else filename
+            
+            size_str = "N/A"
+            if os.path.exists(filepath):
+                size_str = self.format_size(os.path.getsize(filepath))
+            
+            lines.append(f"**ID: {file_id}** | `{truncated_name}` | {size_str}")
+
+        embed.description = "\n".join(lines) if lines else "No files on this page."
+        embed.set_footer(text=f"Total files: {len(self.items)}")
+        return embed
 
 class System(commands.Cog):
     def __init__(self, bot, download_repository: DownloadRepository, config: Config) -> None:
@@ -50,25 +78,9 @@ class System(commands.Cog):
             await ctx.send("No tracked downloaded files.")
             return
 
-        lines = []
-        for file_id, url, filepath, download_time, is_public in files:
-            filename = os.path.basename(filepath)
-            truncated_name = (filename[:37] + "...") if len(filename) > 40 else filename
-            
-            size_str = "N/A"
-            if os.path.exists(filepath):
-                size_str = self._format_size(os.path.getsize(filepath))
-            
-            lines.append(f"**ID: {file_id}** | `{truncated_name}` | {size_str}")
-        
-        # Split into chunks if needed (discord message limit is 2000 chars)
-        msg = "Tracked downloaded files:\n" + "\n".join(lines)
-        if len(msg) > 1900:
-            # Simple chunking for now
-            for i in range(0, len(msg), 1900):
-                await ctx.send(msg[i:i+1900])
-        else:
-            await ctx.send(msg)
+        view = DownloadedFileListView(files, self._format_size)
+        view.update_buttons()
+        view.message = await ctx.send(embed=await view.get_current_page_embed(), view=view)
 
     @commands.is_owner()
     @system.command(name="delete", brief="Deletes a tracked file by ID")

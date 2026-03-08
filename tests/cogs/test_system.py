@@ -1,8 +1,9 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from yt_dlp_bot.cogs.system import System
+from yt_dlp_bot.cogs.system import System, DownloadedFileListView
 from yt_dlp_bot.helpers import Config
 import os
+import discord
 
 @pytest.fixture
 def mock_bot():
@@ -47,12 +48,17 @@ async def test_list_files_not_empty(system_cog, mock_ctx, mock_download_reposito
     with patch("os.path.exists", return_value=True), \
          patch("os.path.getsize", return_value=1024 * 1024 * 5): # 5 MiB
         await system_cog.list_files.callback(system_cog, mock_ctx)
+        
         mock_ctx.send.assert_called_once()
-        sent_msg = mock_ctx.send.call_args[0][0]
-        assert "ID: 1" in sent_msg
-        assert "very_long_filename_that_should_be_tru..." in sent_msg
-        assert "5.0 MiB" in sent_msg
-        assert "2025-01-01 12:00:00" not in sent_msg
+        args, kwargs = mock_ctx.send.call_args
+        
+        # Check that an embed and view were sent
+        assert "embed" in kwargs
+        assert "view" in kwargs
+        embed = kwargs["embed"]
+        assert "Tracked Downloaded Files" in embed.title
+        assert "very_long_filename_that_should_be_tru..." in embed.description
+        assert "5.0 MiB" in embed.description
 
 @pytest.mark.asyncio
 async def test_delete_file_success(system_cog, mock_ctx, mock_download_repository):
