@@ -20,8 +20,14 @@ def mock_http_client():
     return MagicMock()
 
 @pytest.fixture
-def subscription_service(mock_sub_repo, mock_http_client, mock_down_service, mock_down_repo):
-    return SubscriptionService(mock_sub_repo, mock_http_client, mock_down_service, mock_down_repo)
+def mock_config():
+    m = MagicMock()
+    m.use_streamlink_for_subscriptions = True
+    return m
+
+@pytest.fixture
+def subscription_service(mock_sub_repo, mock_http_client, mock_down_service, mock_down_repo, mock_config):
+    return SubscriptionService(mock_sub_repo, mock_http_client, mock_down_service, mock_down_repo, mock_config)
 
 def test_subscribe_to_channel(subscription_service, mock_sub_repo):
     subscription_service.subscribe_to_channel("chan1", RoomKind.STREAM, 1, 2)
@@ -54,7 +60,7 @@ def test_receive_waiting_room_when_not_subscribed(subscription_service, mock_dow
     mock_sub_repo.get_guild_info_for_subscription.assert_not_called()
 
 @pytest.mark.asyncio
-async def test_receive_stream_notification_when_subscribed(subscription_service, mock_sub_repo, mock_down_repo, mock_down_service):
+async def test_receive_stream_notification_when_subscribed(subscription_service, mock_sub_repo, mock_down_repo, mock_down_service, mock_config):
     video = YoutubeVideo(channel_id="chan1", video_id="vid1")
     mock_sub_repo.get_guild_info_for_subscription.return_value = [(10, 20)]
     
@@ -62,7 +68,7 @@ async def test_receive_stream_notification_when_subscribed(subscription_service,
     
     mock_sub_repo.get_guild_info_for_subscription.assert_called_once_with("chan1", RoomKind.STREAM)
     mock_down_repo.add_completion_for_url.assert_called_once_with(10, 20, video.url)
-    mock_down_service.initiate_download.assert_called_once_with(video.url, 10, 20, streamlink=True)
+    mock_down_service.initiate_download.assert_called_once_with(video.url, 10, 20, streamlink=mock_config.use_streamlink_for_subscriptions)
 
 @pytest.mark.asyncio
 async def test_receive_stream_notification_when_not_subscribed(subscription_service, mock_sub_repo, mock_down_repo, mock_down_service):

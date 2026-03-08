@@ -5,16 +5,18 @@ from yt_dlp_bot.repositories.subscription_repository import SubscriptionReposito
 from yt_dlp_bot.repositories.download_repository import DownloadRepository
 from yt_dlp_bot.pikl_api.http_client import AsyncHttpClient
 from yt_dlp_bot.services.download_service import DownloadService
-from yt_dlp_bot.database import YoutubeWaitingRoom, YoutubeVideo, RoomKind, SubscriptionModel, SubscriptionModel
+from yt_dlp_bot.database import YoutubeWaitingRoom, YoutubeVideo, RoomKind, SubscriptionModel
+from yt_dlp_bot.helpers import Config
 
 logger = logging.getLogger(__name__)
 
 class SubscriptionService:
-    def __init__(self, subscription_repository: SubscriptionRepository, http_client: AsyncHttpClient, download_service: DownloadService, download_repository: DownloadRepository):
+    def __init__(self, subscription_repository: SubscriptionRepository, http_client: AsyncHttpClient, download_service: DownloadService, download_repository: DownloadRepository, config: Config):
         self.subscription_repository = subscription_repository
         self.http_client = http_client
         self.download_service = download_service
         self.download_repository = download_repository
+        self.config = config
 
     def subscribe_to_channel(self, youtube_channel: str, kind: RoomKind, guild_id: int, channel_id: int):
         self.subscription_repository.subscribe_to_channel(youtube_channel, kind, guild_id, channel_id)
@@ -55,7 +57,7 @@ class SubscriptionService:
             
             # Use the first one to start the download through service
             first_guild, first_channel = guild_info[0]
-            await self.download_service.initiate_download(video.url, first_guild, first_channel, streamlink=True)
+            await self.download_service.initiate_download(video.url, first_guild, first_channel, streamlink=self.config.use_streamlink_for_subscriptions)
 
     def get_subscriptions(self, guild_id: int) -> list[SubscriptionModel]:
         raw_subscriptions = self.subscription_repository.get_subscriptions(guild_id)

@@ -52,7 +52,7 @@ async def main():
         http_client_instance = http_client.AsyncHttpClient(helpers.config.pikl_url)
 
     # SubscriptionService needs to be initialized regardless of pikl_url presence
-    subscription_service = SubscriptionService(subscription_repository, http_client_instance, download_service, download_repository)
+    subscription_service = SubscriptionService(subscription_repository, http_client_instance, download_service, download_repository, helpers.config)
 
     await bot.add_cog(sync.Sync(bot))
     # Pass all required dependencies to YtDl cog

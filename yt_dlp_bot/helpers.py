@@ -27,6 +27,7 @@ class Config(BaseModel):
     yt_dlp_config: dict = {}
     pikl_url: str | None = None
     streamlink_config : StreamlinkConfig = StreamlinkConfig()
+    use_streamlink_for_subscriptions: bool = False
 
 def get_config():
     try:
