@@ -56,10 +56,10 @@ This document outlines the commands available for the Discord bot. The default p
 *   **Description**: Displays a paginated list of files with IDs, truncated names, and sizes.
 *   **Usage**: `y?system list`
 
-### `system delete <id>`
-*   **Brief**: Deletes a tracked file by ID.
-*   **Description**: Removes the file from disk and the record from the database.
-*   **Usage**: `y?system delete <id>`
+### `system delete <ids>`
+*   **Brief**: Deletes tracked files by ID.
+*   **Description**: Removes files from disk and records from the database. Accepts a list of IDs separated by spaces or commas.
+*   **Usage**: `y?system delete <id>[, id... ]` or `y?system delete <id> [id... ]`
 
 ### `system purge`
 *   **Brief**: Purges database records for missing files.

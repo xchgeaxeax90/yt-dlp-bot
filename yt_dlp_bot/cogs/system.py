@@ -91,26 +91,43 @@ class System(commands.Cog):
         view.message = await ctx.send(embed=await view.get_current_page_embed(), view=view)
 
     @commands.is_owner()
-    @system.command(name="delete", brief="Deletes a tracked file by ID")
-    async def delete_file(self, ctx: commands.Context, file_id: int):
-        file_info = self.download_repository.get_downloaded_file_by_id(file_id)
-        if not file_info:
-            await ctx.send(f"No file found with ID {file_id}")
+    @system.command(name="delete", brief="Deletes tracked files by IDs")
+    async def delete_file(self, ctx: commands.Context, ids: str):
+        """Deletes tracked files by a list of IDs (comma or space-separated)."""
+        try:
+            # Replace commas with spaces to handle both separators
+            normalized_ids = ids.replace(",", " ")
+            file_ids = [int(i.strip()) for i in normalized_ids.split() if i.strip()]
+        except ValueError:
+            await ctx.send("Please provide a valid list of integer IDs separated by spaces or commas.")
             return
 
-        filepath = file_info[0]
-        try:
-            if os.path.exists(filepath):
-                os.remove(filepath)
-                status = f"Deleted file from disk and record {file_id} from database."
-            else:
-                status = f"File not found on disk, but record {file_id} was removed from database."
-            
-            self.download_repository.delete_downloaded_file(file_id)
-            await ctx.send(status)
-        except Exception as e:
-            logger.error(f"Error deleting file {filepath}: {e}")
-            await ctx.send(f"Error deleting file: {e}")
+        if not file_ids:
+            await ctx.send("Please provide at least one file ID.")
+            return
+
+        results = []
+        for file_id in file_ids:
+            file_info = self.download_repository.get_downloaded_file_by_id(file_id)
+            if not file_info:
+                results.append(f"ID {file_id}: No file found.")
+                continue
+
+            filepath = file_info[0]
+            try:
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                    status = f"ID {file_id}: Deleted from disk and DB."
+                else:
+                    status = f"ID {file_id}: Not on disk, record removed from DB."
+                
+                self.download_repository.delete_downloaded_file(file_id)
+                results.append(status)
+            except Exception as e:
+                logger.error(f"Error deleting file {filepath}: {e}")
+                results.append(f"ID {file_id}: Error deleting file: {e}")
+
+        await ctx.send("\n".join(results))
 
     @commands.is_owner()
     @system.command(name="purge", brief="Purges database records for missing files")

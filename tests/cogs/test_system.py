@@ -68,8 +68,8 @@ async def test_list_files_not_empty(system_cog, mock_ctx, mock_download_reposito
         assert "view" in kwargs
         embed = kwargs["embed"]
         assert "Tracked Downloaded Files" in embed.title
-        # Check for escaped markdown link \[filename\](url)
-        assert r"[\[3D\] very_long_filename_that_should...](http://url1)" in embed.description
+        # Check for filename (brackets removed) and ID
+        assert "**ID: 1** | [3D very_long_filename_that_should_be_...](http://url1)" in embed.description
         assert " [Private]" in embed.description
         assert "5.0 MiB" in embed.description
 
@@ -80,28 +80,79 @@ async def test_delete_file_success(system_cog, mock_ctx, mock_download_repositor
     
     with patch("os.path.exists", return_value=True), \
          patch("os.remove") as mock_remove:
-        await system_cog.delete_file.callback(system_cog, mock_ctx, 1)
+        await system_cog.delete_file.callback(system_cog, mock_ctx, "1")
         
         mock_remove.assert_called_once_with("/path/to/file1.mp4")
         mock_download_repository.delete_downloaded_file.assert_called_once_with(1)
-        mock_ctx.send.assert_called_once_with("Deleted file from disk and record 1 from database.")
+        mock_ctx.send.assert_called_once_with("ID 1: Deleted from disk and DB.")
+
+@pytest.mark.asyncio
+async def test_delete_file_multiple(system_cog, mock_ctx, mock_download_repository):
+    # Mock return values for multiple IDs
+    mock_download_repository.get_downloaded_file_by_id.side_effect = [
+        ("/path/to/file1.mp4",),
+        None,
+        ("/path/to/file3.mp4",)
+    ]
+    
+    with patch("os.path.exists", side_effect=[True, False]), \
+         patch("os.remove") as mock_remove:
+        await system_cog.delete_file.callback(system_cog, mock_ctx, "1 2 3")
+        
+        mock_remove.assert_called_once_with("/path/to/file1.mp4")
+        # delete_downloaded_file called for ID 1 and 3 (ID 3 not found on disk, but still deleted from DB)
+        assert mock_download_repository.delete_downloaded_file.call_count == 2
+        mock_download_repository.delete_downloaded_file.assert_any_call(1)
+        mock_download_repository.delete_downloaded_file.assert_any_call(3)
+        
+        expected_output = "ID 1: Deleted from disk and DB.\nID 2: No file found.\nID 3: Not on disk, record removed from DB."
+        mock_ctx.send.assert_called_once_with(expected_output)
 
 @pytest.mark.asyncio
 async def test_delete_file_not_found_on_disk(system_cog, mock_ctx, mock_download_repository):
     mock_download_repository.get_downloaded_file_by_id.return_value = ("/path/to/file1.mp4",)
     
     with patch("os.path.exists", return_value=False):
-        await system_cog.delete_file.callback(system_cog, mock_ctx, 1)
+        await system_cog.delete_file.callback(system_cog, mock_ctx, "1")
         
         mock_download_repository.delete_downloaded_file.assert_called_once_with(1)
-        mock_ctx.send.assert_called_once_with("File not found on disk, but record 1 was removed from database.")
+        mock_ctx.send.assert_called_once_with("ID 1: Not on disk, record removed from DB.")
 
 @pytest.mark.asyncio
 async def test_delete_file_not_in_db(system_cog, mock_ctx, mock_download_repository):
     mock_download_repository.get_downloaded_file_by_id.return_value = None
     
-    await system_cog.delete_file.callback(system_cog, mock_ctx, 1)
-    mock_ctx.send.assert_called_once_with("No file found with ID 1")
+    await system_cog.delete_file.callback(system_cog, mock_ctx, "1")
+    mock_ctx.send.assert_called_once_with("ID 1: No file found.")
+
+@pytest.mark.asyncio
+async def test_delete_file_multiple_comma_separated(system_cog, mock_ctx, mock_download_repository):
+    # Mock return values for multiple IDs
+    mock_download_repository.get_downloaded_file_by_id.side_effect = [
+        ("/path/to/file1.mp4",),
+        None,
+        ("/path/to/file3.mp4",)
+    ]
+    
+    with patch("os.path.exists", side_effect=[True, False]), \
+         patch("os.remove") as mock_remove:
+        await system_cog.delete_file.callback(system_cog, mock_ctx, "1, 2,3")
+        
+        mock_remove.assert_called_once_with("/path/to/file1.mp4")
+        assert mock_download_repository.delete_downloaded_file.call_count == 2
+        
+        expected_output = "ID 1: Deleted from disk and DB.\nID 2: No file found.\nID 3: Not on disk, record removed from DB."
+        mock_ctx.send.assert_called_once_with(expected_output)
+
+@pytest.mark.asyncio
+async def test_delete_file_invalid_input(system_cog, mock_ctx, mock_download_repository):
+    await system_cog.delete_file.callback(system_cog, mock_ctx, "1 abc 3")
+    mock_ctx.send.assert_called_once_with("Please provide a valid list of integer IDs separated by spaces or commas.")
+
+@pytest.mark.asyncio
+async def test_delete_file_empty_input(system_cog, mock_ctx, mock_download_repository):
+    await system_cog.delete_file.callback(system_cog, mock_ctx, "  ")
+    mock_ctx.send.assert_called_once_with("Please provide at least one file ID.")
 
 @pytest.mark.asyncio
 async def test_purge_files(system_cog, mock_ctx, mock_download_repository):

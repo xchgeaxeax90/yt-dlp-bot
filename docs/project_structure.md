@@ -51,7 +51,7 @@ This directory contains the main logic and components of the Discord bot.
     *   `system.py`: Provides system management commands.
         *   `system df`: Checks disk usage of the download directory.
         *   `system list`: Lists tracked downloaded files with pagination.
-        *   `system delete <id>`: Deletes a tracked file from disk and database.
+        *   `system delete <id> [id... ]`: Deletes tracked files from disk and database.
         *   `system purge`: Removes database records for files that no longer exist on disk.
         *   `system scan`: Checks availability of tracked URLs using `yt-dlp`.
 
