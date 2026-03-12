@@ -143,58 +143,34 @@ class System(commands.Cog):
 
     @commands.is_owner()
     @system.command(name="scan", brief="Scans tracked files for availability")
-    async def scan_files(self, ctx: commands.Context, include_public: bool = False, older_than: str = None):
+    async def scan_files(self, ctx: commands.Context, older_than: str = None):
         """
         Scans tracked downloaded files to check if the source video is still public.
         
-        :param include_public: If True, also scans files already marked as public (is_public=1).
         :param older_than: Optional duration string (e.g., '1w', '2d'). Only scans files checked longer ago than this.
         """
         await ctx.defer()
-        files = self.download_repository.get_downloaded_files()
         
-        now = datetime.datetime.now(datetime.timezone.utc)
-        threshold = None
+        delta = None
         if older_than:
             delta = parse_text_duration_timedelta(older_than)
-            if delta:
-                threshold = now - delta
-            else:
-                await ctx.send("Invalid duration format. Use e.g., '1w', '2d', '12h'.")
-                return
 
-        to_scan = []
-        for file_id, url, filepath, download_time, is_public, last_check in files:
-            # Filter by is_public status
-            if is_public == 1 and not include_public:
-                continue
-            
-            # Filter by last_check duration
-            if last_check and threshold:
-                # sqlite might return timestamp as string
-                try:
-                    last_check_dt = datetime.datetime.fromisoformat(last_check).replace(tzinfo=datetime.timezone.utc)
-                    if last_check_dt > threshold:
-                        continue
-                except (ValueError, TypeError):
-                    pass # If we can't parse it, we scan it
-            
-            to_scan.append((file_id, url))
+        files = self.download_repository.get_downloaded_files_for_scan(delta)
 
-        if not to_scan:
+        if not files:
             await ctx.send("No files match the scan criteria.")
             return
 
-        await ctx.send(f"Starting availability scan for {len(to_scan)} files...")
+        await ctx.send(f"Starting availability scan for {len(files)} files...")
         
         scanned_count = 0
         public_count = 0
         private_count = 0
         
-        for file_id, url in to_scan:
+        for file_id, url in files:
             is_available = await self.downloader.check_video_availability(url)
             status_int = 1 if is_available else 0
-            self.download_repository.update_downloaded_file_status(file_id, status_int, now.isoformat())
+            self.download_repository.update_downloaded_file_status(file_id, status_int)
             
             scanned_count += 1
             if is_available:

@@ -31,7 +31,7 @@ class DownloadRepository:
         with self.con:
             self.con.execute("""DELETE FROM future_downloads WHERE
             (utcepoch - unixepoch()) < -86400;""")
-            
+
 
     def get_downloads_now(self, time_offset: int):
         result = self.con.execute("""SELECT url FROM future_downloads WHERE utcepoch < (unixepoch() + ?) AND valid <> 0;""",
@@ -52,6 +52,18 @@ class DownloadRepository:
         results = self.con.execute("""SELECT id, url, filepath, download_time, is_public, last_check FROM downloaded_files ORDER BY download_time DESC;""").fetchall()
         return results
 
+    def get_downloaded_files_for_scan(self, time_delta):
+        if time_delta:
+            # We expect time_delta to be a timedelta object; convert to total seconds for SQLite.
+            seconds = time_delta.total_seconds()
+            return self.con.execute("""SELECT id, url FROM downloaded_files
+                                       WHERE (is_public IS NULL)
+                                       OR (is_public = 1 AND last_check < (unixepoch() - ?))""",
+                                    (seconds,)).fetchall()
+        else:
+            return self.con.execute("""SELECT id, url FROM downloaded_files WHERE is_public IS NULL""").fetchall()
+
+
     def get_downloaded_file_by_id(self, file_id: int):
         return self.con.execute("""SELECT filepath FROM downloaded_files
             WHERE id = ?;""", (file_id, )).fetchone()
@@ -61,11 +73,11 @@ class DownloadRepository:
             self.con.execute("""DELETE FROM downloaded_files
             WHERE id = ?;""", (file_id, ))
 
-    def update_downloaded_file_status(self, file_id: int, is_public: int, last_check: str):
+    def update_downloaded_file_status(self, file_id: int, is_public: int):
         with self.con:
-            self.con.execute("""UPDATE downloaded_files 
-                                SET is_public = ?, last_check = ? 
-                                WHERE id = ?""", (is_public, last_check, file_id))
+            self.con.execute("""UPDATE downloaded_files
+                                SET is_public = ?, last_check = unixepoch()
+                                WHERE id = ?""", (is_public, file_id))
 
 
     def disable_future_download(self, url: str):
@@ -76,7 +88,7 @@ class DownloadRepository:
     def get_all_scheduled_downloads(self):
         results = self.con.execute("""SELECT url, utcepoch FROM future_downloads WHERE valid <> 0 ORDER BY utcepoch ASC;""").fetchall()
         return results
-        
+
     def add_subscribed_waiting_room(self, room: YoutubeWaitingRoom, url: str):
         with self.con:
             cursor = self.con.cursor()
