@@ -27,6 +27,7 @@ async def main():
     log_format = "%(asctime)s %(levelname)s [%(module)s] (%(funcName)s) - %(message)s"
     logging.basicConfig(level=helpers.cli_args.log_level, format=log_format)
     logging.getLogger("discord").setLevel(logging.INFO)
+    logger.info(f"{helpers.config=}")
 
     intents = discord.Intents()
     intents.guilds = True
